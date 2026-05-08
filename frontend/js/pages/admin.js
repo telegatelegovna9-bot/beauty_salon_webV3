@@ -250,20 +250,17 @@ const AdminPage = {
       const { chats } = await API.admin.dialogList();
       if (!this._selectedChatUserId && chats?.length) this._selectedChatUserId = chats[0].user_id;
       container.innerHTML = `
-        <div style="padding:var(--space-md);display:grid;grid-template-columns:320px 1fr;gap:var(--space-md);height:calc(100vh - 170px)">
-          <div style="background:var(--color-surface);border:1px solid var(--color-border-light);border-radius:14px;overflow:auto">
+        <div style="padding:var(--space-md);display:flex;flex-direction:column;gap:var(--space-md);height:calc(100vh - 170px)">
+          <div style="background:var(--color-surface);border:1px solid var(--color-border-light);border-radius:14px;padding:10px;display:flex;gap:8px;overflow:auto;white-space:nowrap">
             ${!chats || chats.length === 0
-              ? '<div style="padding:var(--space-md);color:var(--color-text-tertiary)">Нет чатов</div>'
+              ? '<span style="color:var(--color-text-tertiary)">Нет чатов</span>'
               : chats.map(c => `
-                <div onclick="AdminPage.selectChat(${c.user_id})" style="padding:12px 14px;border-bottom:1px solid var(--color-border-light);cursor:pointer;background:${this._selectedChatUserId === c.user_id ? 'rgba(255,105,180,.08)' : 'transparent'}">
-                  <div style="font-weight:600">${Utils.getUserName(c)}</div>
-                  <div style="font-size:12px;color:var(--color-text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-                    ${c.last_direction === 'inbound' ? 'Клиент: ' : 'Вы: '}${c.last_message || 'Нет сообщений'}
-                  </div>
-                </div>
+                <button class="btn ${this._selectedChatUserId === c.user_id ? 'btn-primary' : 'btn-ghost'} btn-sm" onclick="AdminPage.selectChat(${c.user_id})" style="display:inline-flex;align-items:center;gap:6px">
+                  <span>${Utils.getUserName(c)}</span>
+                </button>
               `).join('')}
           </div>
-          <div style="background:var(--color-surface);border:1px solid var(--color-border-light);border-radius:14px;display:flex;flex-direction:column;min-height:0">
+          <div style="background:var(--color-surface);border:1px solid var(--color-border-light);border-radius:14px;display:flex;flex-direction:column;min-height:0;flex:1">
             <div id="chat-thread" style="flex:1;overflow:auto;padding:var(--space-md)">Выберите чат</div>
             <div style="padding:var(--space-md);border-top:1px solid var(--color-border-light);display:flex;gap:8px">
               <input id="chat-compose-input" class="form-input" placeholder="Сообщение клиенту..." style="flex:1"/>
