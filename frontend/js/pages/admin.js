@@ -23,6 +23,7 @@ const AdminIcons = {
 
 const AdminPage = {
   activeTab: 'dashboard',
+  _dialogPollTimer: null,
 
   async render(params = {}) {
     return `
@@ -275,6 +276,7 @@ const AdminPage = {
   },
 
   openClientModal(userId) {
+    this.stopDialogAutoRefresh();
     const client = this._clients?.find(c => c.id === userId);
     if (!client) return;
     const isBlocked = client.status === 'blocked';
@@ -323,6 +325,7 @@ const AdminPage = {
       </div>
     `, Utils.getUserName(client));
     this.loadDialog(userId);
+    this.startDialogAutoRefresh(userId);
   },
 
   async saveCRM(userId) {
@@ -330,6 +333,7 @@ const AdminPage = {
     const notes = document.getElementById('crm-notes')?.value;
     try {
       await API.admin.updateCrm(userId, { crm_status: status, notes });
+      this.stopDialogAutoRefresh();
       Modal.close();
       Toast.success('CRM обновлён');
       await this.loadCRM(document.getElementById('admin-tab-content'));
@@ -342,6 +346,7 @@ const AdminPage = {
     const newStatus = currentStatus === 'active' ? 'blocked' : 'active';
     try {
       await API.admin.updateUser(userId, { status: newStatus });
+      this.stopDialogAutoRefresh();
       Modal.close();
       Toast.success(`Клиент ${newStatus === 'active' ? 'разблокирован' : 'заблокирован'}`);
       await this.loadCRM(document.getElementById('admin-tab-content'));
@@ -385,6 +390,25 @@ const AdminPage = {
       box.scrollTop = box.scrollHeight;
     } catch (e) {
       box.innerHTML = `<div style="color:var(--color-danger)">Ошибка загрузки диалога</div>`;
+    }
+  },
+
+  startDialogAutoRefresh(userId) {
+    this.stopDialogAutoRefresh();
+    this._dialogPollTimer = setInterval(async () => {
+      const dialogBox = document.getElementById('dialog-history');
+      if (!dialogBox) {
+        this.stopDialogAutoRefresh();
+        return;
+      }
+      await this.loadDialog(userId);
+    }, 5000);
+  },
+
+  stopDialogAutoRefresh() {
+    if (this._dialogPollTimer) {
+      clearInterval(this._dialogPollTimer);
+      this._dialogPollTimer = null;
     }
   },
 
