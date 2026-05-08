@@ -370,10 +370,12 @@ const BookPage = {
         document.getElementById('booking-phone')?.focus();
         return;
       }
-      const phoneDigits = phone.replace(/\D/g, '');
-      const isValidUaPhone = /^0\d{9}$/.test(phoneDigits) || /^380\d{9}$/.test(phoneDigits);
-      if (!isValidUaPhone) {
-        Toast.error('Введите номер в формате +380XXXXXXXXX или 0XXXXXXXXX');
+      const normalizedPhone = phone.trim();
+      const phoneDigits = normalizedPhone.replace(/\D/g, '');
+      const isUaLocal = /^0\d{9}$/.test(phoneDigits) || /^380\d{9}$/.test(phoneDigits);
+      const isInternational = normalizedPhone.startsWith('+') && phoneDigits.length >= 8 && phoneDigits.length <= 15;
+      if (!isUaLocal && !isInternational) {
+        Toast.error('Введите номер: +XXXXXXXX (международный) или 0XXXXXXXXX / +380XXXXXXXXX');
         if (btn) {
           btn.disabled = false;
           btn.textContent = '\u2713 Подтвердить запись';

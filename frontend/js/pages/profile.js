@@ -187,10 +187,12 @@ const ProfilePage = {
     const firstName = document.getElementById('edit-first-name')?.value;
     const lastName = document.getElementById('edit-last-name')?.value;
     const phone = document.getElementById('edit-phone')?.value?.trim() || '';
-    const phoneDigits = phone.replace(/\D/g, '');
-    const isValidUaPhone = /^0\d{9}$/.test(phoneDigits) || /^380\d{9}$/.test(phoneDigits);
-    if (phone && !isValidUaPhone) {
-      Toast.error('Введите номер в формате +380XXXXXXXXX или 0XXXXXXXXX');
+    const normalizedPhone = phone.trim();
+    const phoneDigits = normalizedPhone.replace(/\D/g, '');
+    const isUaLocal = /^0\d{9}$/.test(phoneDigits) || /^380\d{9}$/.test(phoneDigits);
+    const isInternational = normalizedPhone.startsWith('+') && phoneDigits.length >= 8 && phoneDigits.length <= 15;
+    if (phone && !isUaLocal && !isInternational) {
+      Toast.error('Введите номер: +XXXXXXXX (международный) или 0XXXXXXXXX / +380XXXXXXXXX');
       document.getElementById('edit-phone')?.focus();
       return;
     }

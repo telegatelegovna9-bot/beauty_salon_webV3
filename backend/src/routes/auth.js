@@ -6,7 +6,7 @@ const fs = require('fs');
 const { authMiddleware } = require('../middleware/auth');
 const { adminOnly } = require('../middleware/rbac');
 const { getDb } = require('../database/db');
-const { isValidUaPhone, normalizePhone } = require('../utils/phone');
+const { isValidInternationalPhone, normalizePhone } = require('../utils/phone');
 
 const uploadsDir = path.resolve(process.env.UPLOADS_PATH || './uploads');
 const userAvatarsDir = path.join(uploadsDir, 'users');
@@ -100,8 +100,8 @@ router.put('/profile', authMiddleware, (req, res) => {
   const { phone, first_name, last_name } = req.body;
   const normalizedPhone = normalizePhone(phone);
 
-  if (normalizedPhone && !isValidUaPhone(normalizedPhone)) {
-    return res.status(400).json({ error: 'Введите украинский номер в формате +380XXXXXXXXX или 0XXXXXXXXX' });
+  if (normalizedPhone && !isValidInternationalPhone(normalizedPhone)) {
+    return res.status(400).json({ error: 'Введите корректный номер: +XXXXXXXX (для других стран) или 0XXXXXXXXX / +380XXXXXXXXX (Украина)' });
   }
 
   db.prepare(`

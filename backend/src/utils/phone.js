@@ -16,9 +16,24 @@ function isValidUaPhone(phone) {
   return /^0\d{9}$/.test(digits) || /^380\d{9}$/.test(digits);
 }
 
+function isValidInternationalPhone(phone) {
+  const normalized = normalizePhone(phone);
+  const digits = getPhoneDigits(normalized);
+
+  // Local UA formats without '+' are explicitly allowed
+  if (isValidUaPhone(normalized)) return true;
+
+  // For non-UA numbers require international format with '+'
+  if (!normalized.startsWith('+')) return false;
+
+  // E.164 max length is 15 digits, practical min is 8
+  return digits.length >= 8 && digits.length <= 15;
+}
+
 module.exports = {
   normalizePhone,
   getPhoneDigits,
   isValidPhone,
-  isValidUaPhone
+  isValidUaPhone,
+  isValidInternationalPhone
 };
