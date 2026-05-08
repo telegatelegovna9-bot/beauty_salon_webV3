@@ -1,0 +1,19 @@
+{
+  "name": "beautybot-workspace",
+  "version": "1.0.0",
+  "description": "Beauty Salon Telegram WebApp - Workspace Root",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "bot"
+  ],
+  "scripts": {
+    "install:all": "npm install && cd backend && npm install && cd ../bot && npm install && cd ../frontend && npm install",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:bot": "cd bot && npm run dev",
+    "dev:frontend": "cd frontend && npm start",
+    "start:backend": "cd backend && npm start",
+    "start:bot": "cd bot && npm start",
+    "start": "npm run start:backend & npm run start:bot"
+  }
+}
