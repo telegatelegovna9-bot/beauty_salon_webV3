@@ -189,7 +189,7 @@ router.put('/:id', authMiddleware, adminOnly, (req, res) => {
     duration_minutes ?? service.duration_minutes,
     price ?? service.price,
     price_max ?? service.price_max,
-    image_url ?? service.image_url,
+    image_url !== undefined ? image_url : service.image_url,
     sort_order ?? service.sort_order,
     is_active ?? service.is_active,
     req.params.id
