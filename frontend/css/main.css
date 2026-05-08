@@ -667,6 +667,8 @@ a {
   cursor: pointer;
   transition: all var(--transition-fast);
   position: relative;
+  display: flex;
+  align-items: stretch;
 }
 
 .service-card-list:active {
@@ -681,12 +683,9 @@ a {
 }
 
 .service-card-list-image {
-  width: 90px;
-  height: 90px;
-  min-width: 90px;
-  border-radius: var(--radius-md);
+  width: 100px;
+  min-width: 100px;
   overflow: hidden;
-  margin: var(--space-md) 0 var(--space-md) var(--space-md);
   flex-shrink: 0;
 }
 
@@ -694,6 +693,7 @@ a {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .service-card-list-body {
@@ -701,15 +701,8 @@ a {
   align-items: center;
   padding: var(--space-md);
   gap: var(--space-sm);
-}
-
-.service-card-list:has(.service-card-list-image) .service-card-list-body {
-  padding-left: 0;
-}
-
-.service-card-list:has(.service-card-list-image) {
-  display: flex;
-  align-items: center;
+  flex: 1;
+  min-width: 0;
 }
 
 .service-card-list-info {
