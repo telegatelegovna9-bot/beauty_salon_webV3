@@ -357,6 +357,12 @@ const AdminPage = {
                       <div style="font-size:var(--font-size-sm);color:var(--color-text-secondary)">
                         ${c.total_visits} визитов · ${Math.round(c.total_spent || 0).toLocaleString('ru-RU')} ₽
                       </div>
+                      <div style="font-size:var(--font-size-xs);color:var(--color-text-tertiary)">
+                        ${c.username ? `@${c.username}` : 'username: —'} · ID: ${c.telegram_id || '—'}
+                      </div>
+                      <div style="font-size:var(--font-size-xs);color:var(--color-text-tertiary)">
+                        📞 ${c.phone || '—'}
+                      </div>
                       ${c.last_visit_date ? `<div style="font-size:var(--font-size-xs);color:var(--color-text-tertiary)">Последний визит: ${Utils.formatDate(c.last_visit_date, 'short')}</div>` : ''}
                     </div>
                     <span class="badge badge-${c.crm_status}">${Config.CRM_STATUS[c.crm_status]?.label || c.crm_status}</span>
@@ -390,6 +396,8 @@ const AdminPage = {
           <div style="font-size:32px;font-weight:700;color:var(--color-primary);margin-bottom:4px">${Utils.getInitials(Utils.getUserName(client))}</div>
           <div style="font-weight:700;font-size:var(--font-size-lg)">${Utils.getUserName(client)}</div>
           ${client.username ? `<div style="color:var(--color-text-secondary)">@${client.username}</div>` : ''}
+          <div style="font-size:var(--font-size-xs);color:var(--color-text-tertiary);margin-top:4px">Telegram ID: ${client.telegram_id || '—'}</div>
+          <div style="font-size:var(--font-size-xs);color:var(--color-text-tertiary)">Телефон: ${client.phone || '—'}</div>
         </div>
         <div class="form-group">
           <label class="form-label">Доступ в приложение</label>
