@@ -37,7 +37,7 @@ const MasterDetailPage = {
       const stats = [
         hasRating ? `⭐ ${Number(master.rating).toFixed(1)}` : '',
         hasReviews ? `<span class="master-stat-icon">💬</span> ${reviewsCount} ${reviewWord}` : '',
-        `<span class="master-stat-icon">⏱</span> ${experienceYears} ${experienceWord} опыта`
+        `<span class="master-stat-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16z"/><path d="M12 14l0-4"/><path d="M12 6V4"/><path d="M4 12H2"/><path d="M22 12h-2"/></svg></span> ${experienceYears} ${experienceWord} опыта`
       ].filter(Boolean);
       container.innerHTML = `
         <div class="master-hero-bg"></div>
@@ -53,7 +53,7 @@ const MasterDetailPage = {
             ${specs.length > 0 ? `<div class="master-hero-specs">${specs.slice(0, 3).map(spec => `<span>${spec}</span>`).join('')}</div>` : ''}
             <div class="master-hero-stats">${stats.join('<span class="master-stat-dot">•</span>')}</div>
             <div class="master-hero-bio">${shortBio}</div>
-            <button class="master-hero-btn" onclick="App.navigate('book', { masterId: ${master.id} })"><span class="master-btn-icon">🗓</span> Записаться</button>
+            <button class="master-hero-btn" onclick="App.navigate('book', { masterId: ${master.id} })"><span class="master-btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span> Записаться</button>
           </div>
         </div>
 
@@ -168,12 +168,12 @@ const MasterDetailPage = {
       ${safeReviews.map(r => {
         const name = r.first_name || r.username || 'Клиент';
         const initials = Utils.getInitials(name);
-        let dateTime = '--:--';
+        let dateTime = '';
         if (r.created_at) {
           const d = new Date(r.created_at);
           if (!Number.isNaN(d.getTime())) {
-            const datePart = r.created_at.includes('T') ? r.created_at.split('T')[0] : r.created_at;
-            dateTime = `${Utils.formatDate(datePart, 'short')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+            const opts = { timeZone: 'Europe/Kyiv', day: '2-digit', month: '2-digit', year: '2-digit' };
+            dateTime = d.toLocaleDateString('ru-RU', opts);
           }
         }
 
