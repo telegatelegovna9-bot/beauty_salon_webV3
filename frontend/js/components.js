@@ -231,16 +231,10 @@ const ServiceCard = {
     const { selected = false, onClick = '' } = options;
     const price = Utils.formatPrice(service.price, service.price_max);
     const duration = Utils.formatDuration(service.duration_minutes);
-    const hasImage = !!service.image_url;
     const hasDescription = !!service.description;
 
     return `
       <div class="service-card-list ${selected ? 'selected' : ''} stagger-item" onclick="${onClick}">
-        ${hasImage ? `
-          <div class="service-card-list-image">
-            <img src="${service.image_url}" alt="${service.name}" onerror="this.parentElement.style.display='none'">
-          </div>
-        ` : ''}
         <div class="service-card-list-body">
           <div class="service-card-list-info">
             <div class="service-card-list-name">${service.name}</div>
