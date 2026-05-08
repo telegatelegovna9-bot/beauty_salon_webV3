@@ -97,10 +97,14 @@ router.get('/me', authMiddleware, (req, res) => {
 router.put('/profile', authMiddleware, (req, res) => {
   const db = getDb();
   const { phone, first_name, last_name } = req.body;
+  const normalizedPhone = String(phone || '').trim();
+  if (normalizedPhone && (normalizedPhone.length < 9 || normalizedPhone.length > 13)) {
+    return res.status(400).json({ error: 'Номер телефона должен быть от 9 до 13 символов' });
+  }
 
   db.prepare(`
     UPDATE users SET phone = ?, first_name = ?, last_name = ? WHERE id = ?
-  `).run(phone || null, first_name || req.user.first_name, last_name || req.user.last_name, req.user.id);
+  `).run(normalizedPhone || null, first_name || req.user.first_name, last_name || req.user.last_name, req.user.id);
 
   const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
   res.json({ success: true, user: updated });

@@ -245,6 +245,12 @@ const BookingDetailPage = {
                     <span class="info-row-value">@${booking.client_username}</span>
                   </div>
                 ` : ''}
+                ${booking.client_telegram_id ? `
+                  <div class="info-row">
+                    <span class="info-row-label">Telegram ID</span>
+                    <span class="info-row-value">${booking.client_telegram_id}</span>
+                  </div>
+                ` : ''}
                 ${booking.client_phone ? `
                   <div class="info-row">
                     <span class="info-row-label">Телефон</span>

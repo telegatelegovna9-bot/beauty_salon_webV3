@@ -202,6 +202,12 @@ const API = {
     updateCrm: (userId, data) => API.put(`/admin/crm/${userId}`, data),
     analytics: (period) => API.get(`/admin/analytics${period ? `?period=${period}` : ''}`),
     notify: (data) => API.post('/admin/notify', data),
+    dialogList: () => API.get('/admin/dialog/list'),
+    dialog: (userId, params = {}) => {
+      const q = new URLSearchParams(params).toString();
+      return API.get(`/admin/dialog/user/${userId}${q ? `?${q}` : ''}`);
+    },
+    sendDialog: (userId, data) => API.post(`/admin/dialog/user/${userId}`, data),
     getCategories: () => API.get('/admin/categories'),
     createCategory: (data) => API.post('/admin/categories', data),
     updateCategory: (id, data) => API.put(`/admin/categories/${id}`, data),

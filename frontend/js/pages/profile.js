@@ -186,10 +186,15 @@ const ProfilePage = {
   async saveProfile() {
     const firstName = document.getElementById('edit-first-name')?.value;
     const lastName = document.getElementById('edit-last-name')?.value;
-    const phone = document.getElementById('edit-phone')?.value;
+    const phone = document.getElementById('edit-phone')?.value?.trim() || '';
+    if (phone && (phone.length < 9 || phone.length > 13)) {
+      Toast.error('Номер телефона должен быть от 9 до 13 символов');
+      document.getElementById('edit-phone')?.focus();
+      return;
+    }
 
     try {
-      const { user } = await API.auth.updateProfile({ first_name: firstName, last_name: lastName, phone });
+      const { user } = await API.auth.updateProfile({ first_name: firstName, last_name: lastName, phone: phone || null });
       Store.set('user', user);
       Modal.close();
       Utils.haptic('success');
