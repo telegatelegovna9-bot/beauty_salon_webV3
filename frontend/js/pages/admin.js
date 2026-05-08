@@ -277,6 +277,7 @@ const AdminPage = {
   openClientModal(userId) {
     const client = this._clients?.find(c => c.id === userId);
     if (!client) return;
+    const isBlocked = client.status === 'blocked';
 
     Modal.open(`
       <div style="display:flex;flex-direction:column;gap:var(--space-md)">
@@ -284,6 +285,15 @@ const AdminPage = {
           <div style="font-size:32px;font-weight:700;color:var(--color-primary);margin-bottom:4px">${Utils.getInitials(Utils.getUserName(client))}</div>
           <div style="font-weight:700;font-size:var(--font-size-lg)">${Utils.getUserName(client)}</div>
           ${client.username ? `<div style="color:var(--color-text-secondary)">@${client.username}</div>` : ''}
+        </div>
+        <div class="form-group">
+          <label class="form-label">Доступ в приложение</label>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-sm)">
+            <span class="badge ${isBlocked ? 'badge-cancelled' : 'badge-active'}">${isBlocked ? 'Заблокирован' : 'Активен'}</span>
+            <button class="btn btn-ghost btn-sm" onclick="AdminPage.toggleClientAccess(${userId}, '${client.status}')">
+              ${isBlocked ? 'Разблокировать' : 'Заблокировать'}
+            </button>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">CRM Статус</label>
@@ -309,6 +319,18 @@ const AdminPage = {
       await API.admin.updateCrm(userId, { crm_status: status, notes });
       Modal.close();
       Toast.success('CRM обновлён');
+      await this.loadCRM(document.getElementById('admin-tab-content'));
+    } catch (e) {
+      Toast.error(e.message || 'Ошибка');
+    }
+  },
+
+  async toggleClientAccess(userId, currentStatus) {
+    const newStatus = currentStatus === 'active' ? 'blocked' : 'active';
+    try {
+      await API.admin.updateUser(userId, { status: newStatus });
+      Modal.close();
+      Toast.success(`Клиент ${newStatus === 'active' ? 'разблокирован' : 'заблокирован'}`);
       await this.loadCRM(document.getElementById('admin-tab-content'));
     } catch (e) {
       Toast.error(e.message || 'Ошибка');
