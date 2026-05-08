@@ -6,7 +6,6 @@ const fs = require('fs');
 const { authMiddleware } = require('../middleware/auth');
 const { adminOnly } = require('../middleware/rbac');
 const { getDb } = require('../database/db');
-const { isValidInternationalPhone, normalizePhone } = require('../utils/phone');
 
 const uploadsDir = path.resolve(process.env.UPLOADS_PATH || './uploads');
 const userAvatarsDir = path.join(uploadsDir, 'users');
@@ -98,10 +97,9 @@ router.get('/me', authMiddleware, (req, res) => {
 router.put('/profile', authMiddleware, (req, res) => {
   const db = getDb();
   const { phone, first_name, last_name } = req.body;
-  const normalizedPhone = normalizePhone(phone);
-
-  if (normalizedPhone && !isValidInternationalPhone(normalizedPhone)) {
-    return res.status(400).json({ error: 'Введите корректный номер: +XXXXXXXX (для других стран) или 0XXXXXXXXX / +380XXXXXXXXX (Украина)' });
+  const normalizedPhone = String(phone || '').trim();
+  if (normalizedPhone && (normalizedPhone.length < 9 || normalizedPhone.length > 13)) {
+    return res.status(400).json({ error: 'Номер телефона должен быть от 9 до 13 символов' });
   }
 
   db.prepare(`

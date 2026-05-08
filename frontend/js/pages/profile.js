@@ -187,12 +187,8 @@ const ProfilePage = {
     const firstName = document.getElementById('edit-first-name')?.value;
     const lastName = document.getElementById('edit-last-name')?.value;
     const phone = document.getElementById('edit-phone')?.value?.trim() || '';
-    const normalizedPhone = phone.trim();
-    const phoneDigits = normalizedPhone.replace(/\D/g, '');
-    const isUaLocal = /^0\d{9}$/.test(phoneDigits) || /^380\d{9}$/.test(phoneDigits);
-    const isInternational = normalizedPhone.startsWith('+') && phoneDigits.length >= 8 && phoneDigits.length <= 15;
-    if (phone && !isUaLocal && !isInternational) {
-      Toast.error('Введите номер: +XXXXXXXX (международный) или 0XXXXXXXXX / +380XXXXXXXXX');
+    if (phone && (phone.length < 9 || phone.length > 13)) {
+      Toast.error('Номер телефона должен быть от 9 до 13 символов');
       document.getElementById('edit-phone')?.focus();
       return;
     }

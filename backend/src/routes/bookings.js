@@ -3,7 +3,6 @@ const router = express.Router();
 const { authMiddleware } = require('../middleware/auth');
 const { adminOnly, masterOrAdmin } = require('../middleware/rbac');
 const { getDb } = require('../database/db');
-const { isValidInternationalPhone, normalizePhone } = require('../utils/phone');
 
 // GET /api/bookings/my - get client's own bookings
 router.get('/my', authMiddleware, (req, res) => {
@@ -129,12 +128,12 @@ router.post('/', authMiddleware, (req, res) => {
     return res.status(400).json({ error: 'master_id, service_id, booking_date, start_time are required' });
   }
 
-  const clientPhone = normalizePhone(client_phone);
+  const clientPhone = String(client_phone || '').trim();
   if (!clientPhone) {
     return res.status(400).json({ error: 'client_phone is required' });
   }
-  if (!isValidInternationalPhone(clientPhone)) {
-    return res.status(400).json({ error: 'Введите корректный номер: +XXXXXXXX (для других стран) или 0XXXXXXXXX / +380XXXXXXXXX (Украина)' });
+  if (clientPhone.length < 9 || clientPhone.length > 13) {
+    return res.status(400).json({ error: 'Номер телефона должен быть от 9 до 13 символов' });
   }
 
   // Validate date (Kyiv timezone)
