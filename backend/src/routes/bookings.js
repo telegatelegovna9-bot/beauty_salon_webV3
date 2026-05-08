@@ -3,7 +3,7 @@ const router = express.Router();
 const { authMiddleware } = require('../middleware/auth');
 const { adminOnly, masterOrAdmin } = require('../middleware/rbac');
 const { getDb } = require('../database/db');
-const { sendBookingNotification } = require('../services/notifications');
+const { sendBookingNotification, sendMasterNewBookingNotification } = require('../services/notifications');
 
 // GET /api/bookings/my - get client's own bookings
 router.get('/my', authMiddleware, (req, res) => {
@@ -215,6 +215,7 @@ router.post('/', authMiddleware, (req, res) => {
 
   try {
     const booking = createBooking();
+    sendMasterNewBookingNotification(booking.id).catch((e) => console.error('Master notification send failed:', e.message));
     res.status(201).json({ booking, success: true });
   } catch (error) {
     const errorMessages = {

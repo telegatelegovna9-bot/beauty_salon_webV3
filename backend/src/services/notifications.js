@@ -83,6 +83,19 @@ function formatBookingMessage(booking, type) {
 💅 ${booking.service_name}
 
 Вы можете записаться на другое время через приложение.`
+    ,
+
+    new_booking_master: `
+🔔 <b>Новая запись</b>
+
+📅 ${dateStr}
+🕐 ${timeStr}
+💅 ${booking.service_name}
+👤 Клиент: ${booking.client_name || 'Клиент'}
+📞 Телефон: ${booking.client_phone || 'не указан'}
+💰 Стоимость: ${booking.price ? booking.price + ' ₽' : 'уточните в приложении'}
+
+Проверьте детали в приложении.`
   };
 
   return messages[type] || '';
@@ -177,6 +190,39 @@ async function sendBookingNotification(bookingId, type) {
   );
 }
 
+async function sendMasterNewBookingNotification(bookingId) {
+  const db = getDb();
+  const booking = db.prepare(`
+    SELECT b.*,
+      s.name as service_name,
+      mp.display_name as master_name,
+      u_master.telegram_id as master_telegram_id,
+      COALESCE(u_client.first_name || ' ' || u_client.last_name, u_client.username, 'Клиент') as client_name
+    FROM bookings b
+    JOIN services s ON b.service_id = s.id
+    JOIN masters_profiles mp ON b.master_id = mp.id
+    JOIN users u_master ON mp.user_id = u_master.id
+    JOIN users u_client ON b.client_id = u_client.id
+    WHERE b.id = ?
+  `).get(bookingId);
+
+  if (!booking || !booking.master_telegram_id) return;
+
+  const message = formatBookingMessage(booking, 'new_booking_master');
+  if (!message) return;
+
+  const sent = await sendTelegramMessage(booking.master_telegram_id, message);
+  db.prepare(`
+    INSERT INTO notifications_log (user_id, booking_id, type, message, status, sent_at)
+    VALUES (?, ?, 'custom', ?, ?, CURRENT_TIMESTAMP)
+  `).run(
+    db.prepare('SELECT user_id FROM masters_profiles WHERE id = ?').get(booking.master_id)?.user_id || null,
+    bookingId,
+    message,
+    sent ? 'sent' : 'failed'
+  );
+}
+
 function startNotificationScheduler() {
   // Check every 30 minutes for upcoming reminders
   cron.schedule('*/30 * * * *', async () => {
@@ -220,4 +266,4 @@ function startNotificationScheduler() {
   console.log('✅ Notification scheduler started');
 }
 
-module.exports = { sendBookingNotification, sendTelegramMessage, startNotificationScheduler };
+module.exports = { sendBookingNotification, sendMasterNewBookingNotification, sendTelegramMessage, startNotificationScheduler };

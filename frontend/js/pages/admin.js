@@ -307,6 +307,11 @@ const AdminPage = {
           <label class="form-label">Заметки</label>
           <textarea class="form-input form-textarea" id="crm-notes">${client.notes || ''}</textarea>
         </div>
+        <div class="form-group">
+          <label class="form-label">Сообщение от имени бота</label>
+          <textarea class="form-input form-textarea" id="bot-direct-message" placeholder="Например: Здравствуйте! Пожалуйста, подтвердите ваш визит."></textarea>
+          <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="AdminPage.sendDirectMessage(${userId})">Отправить сообщение</button>
+        </div>
         <button class="btn btn-primary btn-full" onclick="AdminPage.saveCRM(${userId})">Сохранить</button>
       </div>
     `, Utils.getUserName(client));
@@ -334,6 +339,22 @@ const AdminPage = {
       await this.loadCRM(document.getElementById('admin-tab-content'));
     } catch (e) {
       Toast.error(e.message || 'Ошибка');
+    }
+  },
+
+  async sendDirectMessage(userId) {
+    const message = document.getElementById('bot-direct-message')?.value?.trim();
+    if (!message) {
+      Toast.error('Введите сообщение');
+      return;
+    }
+    try {
+      await API.admin.notify({ user_id: userId, message, type: 'custom' });
+      Toast.success('Сообщение отправлено');
+      const input = document.getElementById('bot-direct-message');
+      if (input) input.value = '';
+    } catch (e) {
+      Toast.error(e.message || 'Ошибка отправки');
     }
   },
 
