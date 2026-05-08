@@ -348,13 +348,25 @@ router.post('/dialog/incoming', (req, res) => {
   }
 
   const db = getDb();
-  const { telegram_id, message } = req.body;
+  const { telegram_id, message, username, first_name, last_name } = req.body;
   if (!telegram_id || !message) {
     return res.status(400).json({ error: 'telegram_id and message are required' });
   }
 
-  const user = db.prepare('SELECT id FROM users WHERE telegram_id = ?').get(String(telegram_id));
-  if (!user) return res.status(404).json({ error: 'User not found' });
+  let user = db.prepare('SELECT id FROM users WHERE telegram_id = ?').get(String(telegram_id));
+  if (!user) {
+    const result = db.prepare(`
+      INSERT INTO users (telegram_id, username, first_name, last_name, role, status)
+      VALUES (?, ?, ?, ?, 'client', 'active')
+    `).run(
+      String(telegram_id),
+      username || null,
+      first_name || null,
+      last_name || null
+    );
+    db.prepare('INSERT OR IGNORE INTO clients (user_id) VALUES (?)').run(result.lastInsertRowid);
+    user = { id: result.lastInsertRowid };
+  }
 
   db.prepare(`
     INSERT INTO dialog_messages (user_id, direction, message, source)

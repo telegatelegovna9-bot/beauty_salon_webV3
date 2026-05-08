@@ -233,7 +233,10 @@ bot.on('message', async (msg) => {
     const axios = require('axios');
     await axios.post(`http://localhost:${process.env.PORT || 3001}/api/admin/dialog/incoming`, {
       telegram_id: msg.from?.id,
-      message: msg.text
+      message: msg.text,
+      username: msg.from?.username,
+      first_name: msg.from?.first_name,
+      last_name: msg.from?.last_name
     }, {
       headers: { 'X-Bot-Secret': process.env.BOT_TOKEN }
     });
