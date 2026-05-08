@@ -332,7 +332,7 @@ const BookPage = {
       <!-- Phone -->
       <div class="form-group">
         <label class="form-label">Номер телефона <span style="color:var(--color-primary)">*</span></label>
-        <input class="form-input" id="booking-phone" type="tel" value="${(Store.get('user') || {}).phone || ''}" placeholder="+380 XX XXX XX XX" required>
+        <input class="form-input" id="booking-phone" type="tel" value="${(Store.get('user') || {}).phone || ''}" placeholder="Введите номер телефона" required>
       </div>
 
       <!-- Notes -->
