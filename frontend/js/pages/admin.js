@@ -134,7 +134,7 @@ const AdminPage = {
                     <div style="flex:1">
                       <div style="font-weight:600;font-size:var(--font-size-sm)">${b.service_name}</div>
                       <div style="font-size:var(--font-size-xs);color:var(--color-text-secondary)">
-                        ${b.client_first_name || b.client_username || 'Клиент'} → ${b.master_name}
+                        ${b.client_first_name || b.client_username || 'Клиент'}${b.client_username ? ` · @${b.client_username}` : ''}${b.client_telegram_id ? ` · ID:${b.client_telegram_id}` : ''} → ${b.master_name}
                       </div>
                       <div style="font-size:var(--font-size-xs);color:var(--color-text-tertiary)">${Utils.formatDate(b.booking_date, 'short')} ${Utils.formatTime(b.start_time)}</div>
                     </div>
@@ -191,7 +191,7 @@ const AdminPage = {
                 <div class="booking-card-body">
                   <div style="font-weight:600">${b.service_name}</div>
                   <div style="font-size:var(--font-size-sm);color:var(--color-text-secondary)">
-                    ${b.client_first_name || b.client_username || 'Клиент'} → ${b.master_name}
+                    ${b.client_first_name || b.client_username || 'Клиент'}${b.client_username ? ` · @${b.client_username}` : ''}${b.client_telegram_id ? ` · ID:${b.client_telegram_id}` : ''} → ${b.master_name}
                   </div>
                 </div>
               </div>

@@ -651,6 +651,8 @@ const MasterBookingsPage = {
                     <div style="font-weight:600">${b.service_name}</div>
                     <div style="font-size:var(--font-size-sm);color:var(--color-text-secondary)">
                       👤 ${b.client_first_name || b.client_username || 'Клиент'}
+                      ${b.client_username ? `· @${b.client_username}` : ''}
+                      ${b.client_telegram_id ? `· ID:${b.client_telegram_id}` : ''}
                       ${b.client_phone ? `· 📞 ${b.client_phone}` : ''}
                     </div>
                   </div>

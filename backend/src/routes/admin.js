@@ -77,7 +77,7 @@ router.get('/dashboard', (req, res) => {
   // Recent bookings
   const recent_bookings = db.prepare(`
     SELECT b.*, s.name as service_name, mp.display_name as master_name,
-      u.first_name as client_first_name, u.last_name as client_last_name, u.username as client_username
+      u.first_name as client_first_name, u.last_name as client_last_name, u.username as client_username, u.telegram_id as client_telegram_id
     FROM bookings b
     JOIN services s ON b.service_id = s.id
     JOIN masters_profiles mp ON b.master_id = mp.id
@@ -185,9 +185,9 @@ router.get('/crm', (req, res) => {
 
   if (crm_status) { query += ' AND c.crm_status = ?'; params.push(crm_status); }
   if (search) {
-    query += ' AND (u.username LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR u.phone LIKE ?)';
+    query += ' AND (u.username LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR u.phone LIKE ? OR u.telegram_id LIKE ?)';
     const s = `%${search}%`;
-    params.push(s, s, s, s);
+    params.push(s, s, s, s, s);
   }
 
   query += ' ORDER BY c.total_spent DESC, c.total_visits DESC LIMIT ? OFFSET ?';
@@ -330,6 +330,14 @@ router.post('/dialog/incoming', (req, res) => {
     );
     db.prepare('INSERT OR IGNORE INTO clients (user_id) VALUES (?)').run(result.lastInsertRowid);
     user = { id: result.lastInsertRowid };
+  } else {
+    db.prepare(`
+      UPDATE users SET
+        username = COALESCE(?, username),
+        first_name = COALESCE(?, first_name),
+        last_name = COALESCE(?, last_name)
+      WHERE id = ?
+    `).run(username || null, first_name || null, last_name || null, user.id);
   }
 
   db.prepare(`

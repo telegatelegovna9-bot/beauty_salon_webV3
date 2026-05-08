@@ -96,7 +96,7 @@ router.get('/:id', authMiddleware, (req, res) => {
       mp.display_name as master_name, mp.avatar_url as master_avatar,
       u_master.first_name as master_first_name, u_master.last_name as master_last_name,
       u_client.first_name as client_first_name, u_client.last_name as client_last_name,
-      u_client.username as client_username, COALESCE(b.client_phone, u_client.phone) as client_phone
+      u_client.username as client_username, COALESCE(b.client_phone, u_client.phone) as client_phone, u_client.telegram_id as client_telegram_id
     FROM bookings b
     JOIN services s ON b.service_id = s.id
     JOIN masters_profiles mp ON b.master_id = mp.id
@@ -319,7 +319,7 @@ router.get('/admin/all', authMiddleware, adminOnly, (req, res) => {
       s.name as service_name, s.category as service_category,
       mp.display_name as master_name,
       u_client.first_name as client_first_name, u_client.last_name as client_last_name,
-      u_client.username as client_username
+      u_client.username as client_username, u_client.telegram_id as client_telegram_id
     FROM bookings b
     JOIN services s ON b.service_id = s.id
     JOIN masters_profiles mp ON b.master_id = mp.id
