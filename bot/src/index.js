@@ -3,6 +3,7 @@ const TelegramBot = require('node-telegram-bot-api');
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEBAPP_URL = process.env.WEBAPP_URL;
+const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3001}`;
 
 if (!BOT_TOKEN) {
   console.error('❌ BOT_TOKEN is not set in .env file');
@@ -231,14 +232,15 @@ bot.on('message', async (msg) => {
     if (msg.web_app_data) return;
 
     const axios = require('axios');
-    await axios.post(`http://localhost:${process.env.PORT || 3001}/api/admin/dialog/incoming`, {
+    await axios.post(`${BACKEND_URL}/api/admin/dialog/incoming`, {
       telegram_id: msg.from?.id,
       message: msg.text,
       username: msg.from?.username,
       first_name: msg.from?.first_name,
       last_name: msg.from?.last_name
     }, {
-      headers: { 'X-Bot-Secret': process.env.BOT_TOKEN }
+      headers: { 'X-Bot-Secret': process.env.BOT_TOKEN },
+      timeout: 10000
     });
   } catch (e) {
     console.error('Failed to persist inbound dialog message:', e.message);
@@ -265,3 +267,4 @@ module.exports = bot;
 
 console.log('✅ Beauty Salon Bot is running!');
 console.log(`🌐 WebApp URL: ${WEBAPP_URL}`);
+console.log(`🔗 Backend URL: ${BACKEND_URL}`);
