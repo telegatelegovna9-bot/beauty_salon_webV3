@@ -25,6 +25,7 @@ const AdminPage = {
   activeTab: 'dashboard',
   _dialogPollTimer: null,
   _selectedChatUserId: null,
+  _chatSearchQuery: '',
 
   async render(params = {}) {
     return `
@@ -248,15 +249,31 @@ const AdminPage = {
   async loadChats(container) {
     try {
       const { chats } = await API.admin.dialogList();
-      if (!this._selectedChatUserId && chats?.length) this._selectedChatUserId = chats[0].user_id;
+      const allChats = chats || [];
+      const q = (this._chatSearchQuery || '').trim().toLowerCase();
+      const filteredChats = !q ? allChats : allChats.filter(c => {
+        const name = Utils.getUserName(c).toLowerCase();
+        const username = String(c.username || '').toLowerCase();
+        const tgId = String(c.telegram_id || '');
+        return name.includes(q) || username.includes(q) || tgId.includes(q);
+      });
+
+      if (!this._selectedChatUserId && filteredChats.length) this._selectedChatUserId = filteredChats[0].user_id;
+      if (this._selectedChatUserId && filteredChats.length && !filteredChats.find(c => c.user_id === this._selectedChatUserId)) {
+        this._selectedChatUserId = filteredChats[0].user_id;
+      }
       container.innerHTML = `
         <div style="padding:var(--space-md);display:flex;flex-direction:column;gap:var(--space-md);height:calc(100vh - 170px)">
+          <div class="form-group" style="margin:0">
+            <input class="form-input" placeholder="Поиск: имя, @username, Telegram ID" value="${this._chatSearchQuery || ''}" oninput="AdminPage.setChatSearch(this.value)">
+          </div>
           <div style="background:var(--color-surface);border:1px solid var(--color-border-light);border-radius:14px;padding:10px;display:flex;gap:8px;overflow:auto;white-space:nowrap">
-            ${!chats || chats.length === 0
-              ? '<span style="color:var(--color-text-tertiary)">Нет чатов</span>'
-              : chats.map(c => `
+            ${filteredChats.length === 0
+              ? '<span style="color:var(--color-text-tertiary)">Ничего не найдено</span>'
+              : filteredChats.map(c => `
                 <button class="btn ${this._selectedChatUserId === c.user_id ? 'btn-primary' : 'btn-ghost'} btn-sm" onclick="AdminPage.selectChat(${c.user_id})" style="display:inline-flex;align-items:center;gap:6px">
                   <span>${Utils.getUserName(c)}</span>
+                  <span style="font-size:11px;opacity:.75">${c.username ? '@' + c.username : 'ID:' + c.telegram_id}</span>
                 </button>
               `).join('')}
           </div>
@@ -269,7 +286,7 @@ const AdminPage = {
           </div>
         </div>
       `;
-      this._chats = chats || [];
+      this._chats = allChats;
       if (this._selectedChatUserId) await this.loadSelectedChat();
       this.startDialogAutoRefresh(this._selectedChatUserId);
     } catch (e) {
@@ -279,6 +296,11 @@ const AdminPage = {
 
   async selectChat(userId) {
     this._selectedChatUserId = userId;
+    await this.loadTab('chats');
+  },
+
+  async setChatSearch(value) {
+    this._chatSearchQuery = value || '';
     await this.loadTab('chats');
   },
 
