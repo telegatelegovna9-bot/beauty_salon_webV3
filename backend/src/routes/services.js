@@ -1,8 +1,43 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const { authMiddleware } = require('../middleware/auth');
 const { adminOnly } = require('../middleware/rbac');
 const { getDb } = require('../database/db');
+
+function getUploadsRoot() {
+  return path.resolve(process.env.UPLOADS_PATH || './uploads');
+}
+
+function getServicesUploadDir() {
+  return path.join(getUploadsRoot(), 'services');
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const uploadDir = getServicesUploadDir();
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const name = `${Date.now()}-${Math.random().toString(36).substring(2)}${ext}`;
+    cb(null, name);
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.jpg', '.jpeg', '.png', '.webp', '.gif'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) cb(null, true);
+    else cb(new Error('Only image files are allowed'));
+  }
+});
 
 function ensureSettingsTable(db) {
   db.prepare(`
@@ -86,6 +121,19 @@ router.get('/:id', authMiddleware, (req, res) => {
   `).all(req.params.id);
 
   res.json({ service, masters });
+});
+
+// POST /api/services/upload-image - upload service image (admin only)
+router.post('/upload-image', authMiddleware, adminOnly, upload.single('image'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No image file provided' });
+
+  const reqProto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+  const reqHost = req.headers['x-forwarded-host'] || req.get('host');
+  const runtimeBaseUrl = reqHost ? `${reqProto}://${reqHost}` : null;
+  const baseUrl = (process.env.WEBAPP_URL || runtimeBaseUrl || `http://localhost:${process.env.PORT || 3001}`).replace(/\/$/, '');
+  const image_url = `${baseUrl}/uploads/services/${req.file.filename}`;
+
+  res.json({ image_url });
 });
 
 // POST /api/services - create service (admin only)

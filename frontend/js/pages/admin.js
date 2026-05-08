@@ -462,9 +462,46 @@ const AdminPage = {
           <label class="form-label">Описание</label>
           <textarea class="form-input form-textarea" id="svc-desc" style="min-height:60px"></textarea>
         </div>
+        <div class="form-group">
+          <label class="form-label">Фото (необязательно)</label>
+          <div id="svc-image-preview" style="display:none;margin-bottom:8px;position:relative">
+            <img id="svc-image-preview-img" style="width:100%;max-height:160px;object-fit:cover;border-radius:var(--radius-md)">
+            <button type="button" onclick="document.getElementById('svc-image-preview').style.display='none';document.getElementById('svc-image-url').value='';document.getElementById('svc-image-input').value=''" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.5);color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px">&times;</button>
+          </div>
+          <input type="file" id="svc-image-input" accept="image/*" class="form-input" onchange="AdminPage.previewServiceImage(this, 'svc-image-preview', 'svc-image-preview-img')">
+          <input type="hidden" id="svc-image-url">
+        </div>
         <button class="btn btn-primary btn-full" onclick="AdminPage.createService()">Создать</button>
       </div>
     `, 'Новая услуга');
+  },
+
+  previewServiceImage(input, previewId, imgId) {
+    const file = input.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const preview = document.getElementById(previewId);
+      const img = document.getElementById(imgId);
+      if (preview && img) {
+        img.src = e.target.result;
+        preview.style.display = 'block';
+      }
+    };
+    reader.readAsDataURL(file);
+  },
+
+  async uploadServiceImageIfNeeded(inputId, urlFieldId) {
+    const input = document.getElementById(inputId);
+    const file = input?.files?.[0];
+    if (!file) return document.getElementById(urlFieldId)?.value || null;
+    try {
+      const { image_url } = await API.services.uploadImage(file);
+      return image_url;
+    } catch (e) {
+      Toast.error('Ошибка загрузки фото');
+      return null;
+    }
   },
 
   async createService() {
@@ -480,7 +517,8 @@ const AdminPage = {
     }
 
     try {
-      await API.services.create({ name, category, duration_minutes: duration, price, description });
+      const image_url = await this.uploadServiceImageIfNeeded('svc-image-input', 'svc-image-url');
+      await API.services.create({ name, category, duration_minutes: duration, price, description, image_url: image_url || undefined });
       Modal.close();
       Toast.success('Услуга создана');
       await this.loadServices(document.getElementById('admin-tab-content'));
@@ -514,6 +552,15 @@ const AdminPage = {
           <input class="form-input" id="svc-edit-duration" type="number" value="${service.duration_minutes}">
           <input class="form-input" id="svc-edit-price" type="number" value="${service.price}">
           <textarea class="form-input form-textarea" id="svc-edit-desc">${service.description || ''}</textarea>
+          <div class="form-group">
+            <label class="form-label">Фото (необязательно)</label>
+            <div id="svc-edit-image-preview" style="${service.image_url ? '' : 'display:none;'}margin-bottom:8px;position:relative">
+              <img id="svc-edit-image-preview-img" src="${service.image_url || ''}" style="width:100%;max-height:160px;object-fit:cover;border-radius:var(--radius-md)">
+              <button type="button" onclick="document.getElementById('svc-edit-image-preview').style.display='none';document.getElementById('svc-edit-image-url').value='__remove__';document.getElementById('svc-edit-image-input').value=''" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.5);color:#fff;border:none;border-radius:50%;width:24px;height:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px">&times;</button>
+            </div>
+            <input type="file" id="svc-edit-image-input" accept="image/*" class="form-input" onchange="AdminPage.previewServiceImage(this, 'svc-edit-image-preview', 'svc-edit-image-preview-img')">
+            <input type="hidden" id="svc-edit-image-url" value="${service.image_url || ''}">
+          </div>
           <button class="btn btn-primary btn-full" onclick="AdminPage.saveServiceEdit(${service.id})">Сохранить</button>
         </div>
       `, 'Редактировать услугу');
@@ -524,12 +571,15 @@ const AdminPage = {
 
   async saveServiceEdit(serviceId) {
     try {
+      let image_url = await this.uploadServiceImageIfNeeded('svc-edit-image-input', 'svc-edit-image-url');
+      if (image_url === '__remove__') image_url = null;
       await API.services.update(serviceId, {
         name: document.getElementById('svc-edit-name')?.value,
         category: document.getElementById('svc-edit-category')?.value,
         duration_minutes: parseInt(document.getElementById('svc-edit-duration')?.value),
         price: parseFloat(document.getElementById('svc-edit-price')?.value),
-        description: document.getElementById('svc-edit-desc')?.value
+        description: document.getElementById('svc-edit-desc')?.value,
+        image_url
       });
       Modal.close();
       Toast.success('Услуга обновлена');

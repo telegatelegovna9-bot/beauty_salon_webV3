@@ -657,6 +657,130 @@ a {
   padding-top: var(--space-sm);
 }
 
+/* Service list card (booking flow) */
+.service-card-list {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border-light);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  position: relative;
+}
+
+.service-card-list:active {
+  transform: scale(0.98);
+  box-shadow: none;
+}
+
+.service-card-list.selected {
+  border-color: var(--color-primary);
+  background: linear-gradient(135deg, #FFF5F7 0%, #FFE9F0 100%);
+  box-shadow: 0 4px 12px rgba(255, 105, 180, 0.1);
+}
+
+.service-card-list-image {
+  width: 90px;
+  height: 90px;
+  min-width: 90px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  margin: var(--space-md) 0 var(--space-md) var(--space-md);
+  flex-shrink: 0;
+}
+
+.service-card-list-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.service-card-list-body {
+  display: flex;
+  align-items: center;
+  padding: var(--space-md);
+  gap: var(--space-sm);
+}
+
+.service-card-list:has(.service-card-list-image) .service-card-list-body {
+  padding-left: 0;
+}
+
+.service-card-list:has(.service-card-list-image) {
+  display: flex;
+  align-items: center;
+}
+
+.service-card-list-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.service-card-list-name {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.service-card-list-desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.4;
+}
+
+.service-card-list-duration {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  padding: 3px 10px;
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-full);
+  width: fit-content;
+}
+
+.service-card-list-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.service-card-list-price {
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  color: var(--color-primary-dark);
+  white-space: nowrap;
+}
+
+.service-card-list-check {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  background: var(--color-primary);
+  color: white;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .service-info {
   flex: 1;
   min-width: 0;

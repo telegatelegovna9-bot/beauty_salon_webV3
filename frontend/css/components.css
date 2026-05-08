@@ -158,7 +158,7 @@
 }
 
 /* Prevent text selection on interactive elements */
-.btn, .nav-item, .service-card, .service-card-old, .master-card, .master-card-old,
+.btn, .nav-item, .service-card, .service-card-old, .service-card-list, .master-card, .master-card-old,
 .booking-card, .calendar-day, .time-slot, .category-tab, .menu-item {
   user-select: none;
   -webkit-user-select: none;

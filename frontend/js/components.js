@@ -225,23 +225,37 @@ const ServiceCard = {
   },
 
   /**
-   * Renders a service card in old list style for the booking flow
+   * Renders a service card in list style for the booking flow with optional photo and description
    */
   render(service, options = {}) {
     const { selected = false, onClick = '' } = options;
     const price = Utils.formatPrice(service.price, service.price_max);
     const duration = Utils.formatDuration(service.duration_minutes);
+    const hasImage = !!service.image_url;
+    const hasDescription = !!service.description;
 
     return `
-      <div class="service-card-old ${selected ? 'selected' : ''} stagger-item" onclick="${onClick}">
-        <div class="service-info">
-          <div class="service-name">${service.name}</div>
-          <div class="service-meta">
-            <span>⏱ ${duration}</span>
+      <div class="service-card-list ${selected ? 'selected' : ''} stagger-item" onclick="${onClick}">
+        ${hasImage ? `
+          <div class="service-card-list-image">
+            <img src="${service.image_url}" alt="${service.name}" onerror="this.parentElement.style.display='none'">
+          </div>
+        ` : ''}
+        <div class="service-card-list-body">
+          <div class="service-card-list-info">
+            <div class="service-card-list-name">${service.name}</div>
+            ${hasDescription ? `<div class="service-card-list-desc">${service.description}</div>` : ''}
+            <div class="service-card-list-duration">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              ${duration}
+            </div>
+          </div>
+          <div class="service-card-list-right">
+            <div class="service-card-list-price">${price}</div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-tertiary)" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
           </div>
         </div>
-        <div class="service-price">${price}</div>
-        ${selected ? '<div style="color:var(--color-primary);margin-left:4px">✓</div>' : ''}
+        ${selected ? '<div class="service-card-list-check">✓</div>' : ''}
       </div>
     `;
   }
