@@ -53,7 +53,7 @@ const MasterDetailPage = {
             ${specs.length > 0 ? `<div class="master-hero-specs">${specs.slice(0, 3).map(spec => `<span>${spec}</span>`).join('')}</div>` : ''}
             <div class="master-hero-stats">${stats.join('<span class="master-stat-dot">•</span>')}</div>
             <div class="master-hero-bio">${shortBio}</div>
-            <button class="master-hero-btn" onclick="App.navigate('book', { masterId: ${master.id} })"><span class="master-btn-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg></span> Записаться</button>
+            <button class="master-hero-btn" onclick="App.navigate('book', { masterId: ${master.id} })">Записаться</button>
           </div>
         </div>
 
