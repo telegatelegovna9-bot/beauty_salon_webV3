@@ -35,6 +35,7 @@ const AdminPage = {
             { key: 'bookings', label: 'Записи', icon: AdminIcons.calendar },
             { key: 'masters', label: 'Мастера', icon: AdminIcons.masters },
             { key: 'crm', label: 'CRM', icon: AdminIcons.users },
+            { key: 'chats', label: 'Чаты', icon: AdminIcons.users },
             { key: 'codes', label: 'Коды', icon: AdminIcons.key },
             { key: 'services', label: 'Услуги', icon: AdminIcons.scissors },
             { key: 'categories', label: 'Категории', icon: AdminIcons.folder }
@@ -59,7 +60,7 @@ const AdminPage = {
     this.activeTab = tab;
     document.querySelectorAll('#admin-page .master-tab').forEach(t => {
       t.classList.toggle('active', t.textContent.trim().includes(
-        { dashboard: 'Дашборд', bookings: 'Записи', masters: 'Мастера', crm: 'CRM', codes: 'Коды', services: 'Услуги', categories: 'Категории' }[tab]
+        { dashboard: 'Дашборд', bookings: 'Записи', masters: 'Мастера', crm: 'CRM', chats: 'Чаты', codes: 'Коды', services: 'Услуги', categories: 'Категории' }[tab]
       ));
     });
     this.loadTab(tab);
@@ -75,6 +76,7 @@ const AdminPage = {
       case 'bookings': await this.loadBookings(container); break;
       case 'masters': await this.loadMasters(container); break;
       case 'crm': await this.loadCRM(container); break;
+      case 'chats': await this.loadChats(container); break;
       case 'codes': await this.loadCodes(container); break;
       case 'services': await this.loadServices(container); break;
       case 'categories': await this.loadCategories(container); break;
@@ -241,6 +243,39 @@ const AdminPage = {
   // CRM
   // ============================================
 
+  async loadChats(container) {
+    try {
+      const { chats } = await API.admin.dialogList();
+      container.innerHTML = `
+        <div style="padding:var(--space-md);display:flex;flex-direction:column;gap:var(--space-sm)">
+          ${!chats || chats.length === 0
+            ? EmptyState.render(AdminIcons.users, 'Нет чатов', '')
+            : chats.map(c => `
+              <div class="card" onclick="AdminPage.openClientModal(${c.user_id})">
+                <div class="card-body">
+                  <div style="display:flex;align-items:center;gap:var(--space-md)">
+                    <div style="width:44px;height:44px;border-radius:50%;background:var(--color-bg-secondary);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--color-primary)">
+                      ${Utils.getInitials(Utils.getUserName(c))}
+                    </div>
+                    <div style="flex:1;min-width:0">
+                      <div style="font-weight:600">${Utils.getUserName(c)}</div>
+                      <div style="font-size:var(--font-size-xs);color:var(--color-text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                        ${c.last_direction === 'inbound' ? 'Клиент: ' : 'Вы: '}${c.last_message || 'Нет сообщений'}
+                      </div>
+                    </div>
+                    <div style="font-size:11px;color:var(--color-text-tertiary)">${c.last_at ? new Date(c.last_at).toLocaleDateString('ru-RU') : ''}</div>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+        </div>
+      `;
+      this._clients = chats.map(c => ({ ...c, id: c.user_id }));
+    } catch (e) {
+      container.innerHTML = EmptyState.render(AdminIcons.warning, 'Ошибка', e.message);
+    }
+  },
+
   async loadCRM(container) {
     try {
       const { clients } = await API.admin.crm({ limit: 50 });
@@ -275,9 +310,16 @@ const AdminPage = {
     }
   },
 
-  openClientModal(userId) {
+  async openClientModal(userId) {
     this.stopDialogAutoRefresh();
-    const client = this._clients?.find(c => c.id === userId);
+    let client = this._clients?.find(c => c.id === userId);
+    if (client && !client.crm_status) {
+      try {
+        const { clients } = await API.admin.crm({ limit: 200 });
+        const fullClient = clients.find(c => c.id === userId);
+        if (fullClient) client = fullClient;
+      } catch (_) {}
+    }
     if (!client) return;
     const isBlocked = client.status === 'blocked';
 
