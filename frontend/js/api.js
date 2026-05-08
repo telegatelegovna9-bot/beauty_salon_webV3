@@ -92,18 +92,7 @@ const API = {
     update: (id, data) => API.put(`/services/${id}`, data),
     delete: (id) => API.delete(`/services/${id}`),
     getCategories: () => API.get('/services/categories'),
-    getBanner: () => API.get('/services/banner'),
-    uploadImage: async (file) => {
-      const formData = new FormData();
-      formData.append('image', file);
-      const url = `${Config.API_URL}/services/upload-image`;
-      const headers = { 'X-Telegram-Init-Data': API._initData || '' };
-      if (API._devUserId) headers['X-Dev-User-Id'] = API._devUserId;
-      const response = await fetch(url, { method: 'POST', headers, body: formData });
-      const data = await response.json();
-      if (!response.ok) throw { status: response.status, message: data.error || 'Upload failed', data };
-      return data;
-    }
+    getBanner: () => API.get('/services/banner')
   },
 
   // ============================================
