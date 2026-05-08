@@ -351,7 +351,6 @@ const AdminPage = {
   },
 
   async openClientModal(userId) {
-    this.stopDialogAutoRefresh();
     let client = this._clients?.find(c => c.id === userId);
     if (client && !client.crm_status) {
       try {
@@ -391,23 +390,9 @@ const AdminPage = {
           <label class="form-label">Заметки</label>
           <textarea class="form-input form-textarea" id="crm-notes">${client.notes || ''}</textarea>
         </div>
-        <div class="form-group">
-          <label class="form-label">Сообщение от имени бота</label>
-          <textarea class="form-input form-textarea" id="bot-direct-message" placeholder="Например: Здравствуйте! Пожалуйста, подтвердите ваш визит."></textarea>
-          <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="AdminPage.sendDirectMessage(${userId})">Отправить сообщение</button>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Диалог</label>
-          <div id="dialog-history" style="max-height:180px;overflow:auto;border:1px solid var(--color-border);border-radius:10px;padding:8px;font-size:var(--font-size-sm);color:var(--color-text-secondary)">
-            Загрузка...
-          </div>
-          <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="AdminPage.loadDialog(${userId})">Обновить диалог</button>
-        </div>
         <button class="btn btn-primary btn-full" onclick="AdminPage.saveCRM(${userId})">Сохранить</button>
       </div>
     `, Utils.getUserName(client));
-    this.loadDialog(userId);
-    this.startDialogAutoRefresh(userId);
   },
 
   async saveCRM(userId) {
@@ -415,7 +400,6 @@ const AdminPage = {
     const notes = document.getElementById('crm-notes')?.value;
     try {
       await API.admin.updateCrm(userId, { crm_status: status, notes });
-      this.stopDialogAutoRefresh();
       Modal.close();
       Toast.success('CRM обновлён');
       await this.loadCRM(document.getElementById('admin-tab-content'));
@@ -428,7 +412,6 @@ const AdminPage = {
     const newStatus = currentStatus === 'active' ? 'blocked' : 'active';
     try {
       await API.admin.updateUser(userId, { status: newStatus });
-      this.stopDialogAutoRefresh();
       Modal.close();
       Toast.success(`Клиент ${newStatus === 'active' ? 'разблокирован' : 'заблокирован'}`);
       await this.loadCRM(document.getElementById('admin-tab-content'));
