@@ -3,6 +3,7 @@ const router = express.Router();
 const { authMiddleware } = require('../middleware/auth');
 const { adminOnly, masterOrAdmin } = require('../middleware/rbac');
 const { getDb } = require('../database/db');
+const { sendBookingNotification, sendMasterNewBookingNotification } = require('../services/notifications');
 
 // GET /api/bookings/my - get client's own bookings
 router.get('/my', authMiddleware, (req, res) => {
@@ -95,7 +96,7 @@ router.get('/:id', authMiddleware, (req, res) => {
       mp.display_name as master_name, mp.avatar_url as master_avatar,
       u_master.first_name as master_first_name, u_master.last_name as master_last_name,
       u_client.first_name as client_first_name, u_client.last_name as client_last_name,
-      u_client.username as client_username, COALESCE(b.client_phone, u_client.phone) as client_phone
+      u_client.username as client_username, COALESCE(b.client_phone, u_client.phone) as client_phone, u_client.telegram_id as client_telegram_id
     FROM bookings b
     JOIN services s ON b.service_id = s.id
     JOIN masters_profiles mp ON b.master_id = mp.id
@@ -128,8 +129,12 @@ router.post('/', authMiddleware, (req, res) => {
     return res.status(400).json({ error: 'master_id, service_id, booking_date, start_time are required' });
   }
 
-  if (!client_phone || !client_phone.trim()) {
+  const clientPhone = String(client_phone || '').trim();
+  if (!clientPhone) {
     return res.status(400).json({ error: 'client_phone is required' });
+  }
+  if (clientPhone.length < 9 || clientPhone.length > 13) {
+    return res.status(400).json({ error: 'Номер телефона должен быть от 9 до 13 символов' });
   }
 
   // Validate date (Kyiv timezone)
@@ -189,13 +194,13 @@ router.post('/', authMiddleware, (req, res) => {
     }
 
     // Save phone to user profile as well
-    db.prepare('UPDATE users SET phone = ? WHERE id = ?').run(client_phone.trim(), req.user.id);
+    db.prepare('UPDATE users SET phone = ? WHERE id = ?').run(clientPhone, req.user.id);
 
     // Create booking
     const result = db.prepare(`
       INSERT INTO bookings (client_id, master_id, service_id, booking_date, start_time, end_time, status, price, client_notes, client_phone)
       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
-    `).run(req.user.id, master_id, service_id, booking_date, start_time, end_time, price, notes || null, client_phone.trim());
+    `).run(req.user.id, master_id, service_id, booking_date, start_time, end_time, price, notes || null, clientPhone);
 
     return db.prepare(`
       SELECT b.*,
@@ -210,6 +215,7 @@ router.post('/', authMiddleware, (req, res) => {
 
   try {
     const booking = createBooking();
+    sendMasterNewBookingNotification(booking.id).catch((e) => console.error('Master notification send failed:', e.message));
     res.status(201).json({ booking, success: true });
   } catch (error) {
     const errorMessages = {
@@ -271,6 +277,12 @@ router.put('/:id/status', authMiddleware, (req, res) => {
   );
 
   const updated = db.prepare('SELECT * FROM bookings WHERE id = ?').get(req.params.id);
+
+  if (status === 'confirmed' || status === 'cancelled') {
+    sendBookingNotification(req.params.id, status === 'confirmed' ? 'booking_confirmed' : 'booking_cancelled')
+      .catch((e) => console.error('Notification send failed:', e.message));
+  }
+
   res.json({ booking: updated, success: true });
 });
 
@@ -307,7 +319,7 @@ router.get('/admin/all', authMiddleware, adminOnly, (req, res) => {
       s.name as service_name, s.category as service_category,
       mp.display_name as master_name,
       u_client.first_name as client_first_name, u_client.last_name as client_last_name,
-      u_client.username as client_username
+      u_client.username as client_username, u_client.telegram_id as client_telegram_id
     FROM bookings b
     JOIN services s ON b.service_id = s.id
     JOIN masters_profiles mp ON b.master_id = mp.id
