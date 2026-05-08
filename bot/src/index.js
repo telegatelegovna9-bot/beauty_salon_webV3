@@ -158,11 +158,15 @@ bot.on('callback_query', async (query) => {
 
     // Notify backend
     try {
-      const axios = require('axios');
-      await axios.put(`http://localhost:${process.env.PORT || 3001}/api/bookings/${bookingId}/status`, {
+      await fetch(`${BACKEND_URL}/api/bookings/${bookingId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Bot-Secret': process.env.BOT_TOKEN
+        },
+        body: JSON.stringify({
         status: 'confirmed'
-      }, {
-        headers: { 'X-Bot-Secret': process.env.BOT_TOKEN }
+        })
       });
     } catch (e) {
       console.error('Failed to confirm booking via API:', e.message);
@@ -178,12 +182,16 @@ bot.on('callback_query', async (query) => {
     );
 
     try {
-      const axios = require('axios');
-      await axios.put(`http://localhost:${process.env.PORT || 3001}/api/bookings/${bookingId}/status`, {
+      await fetch(`${BACKEND_URL}/api/bookings/${bookingId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Bot-Secret': process.env.BOT_TOKEN
+        },
+        body: JSON.stringify({
         status: 'cancelled',
         cancel_reason: 'Отменено клиентом через уведомление'
-      }, {
-        headers: { 'X-Bot-Secret': process.env.BOT_TOKEN }
+        })
       });
     } catch (e) {
       console.error('Failed to cancel booking via API:', e.message);
@@ -231,16 +239,19 @@ bot.on('message', async (msg) => {
     if (msg.text.startsWith('/')) return; // commands handled separately
     if (msg.web_app_data) return;
 
-    const axios = require('axios');
-    await axios.post(`${BACKEND_URL}/api/admin/dialog/incoming`, {
+    await fetch(`${BACKEND_URL}/api/admin/dialog/incoming`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Bot-Secret': process.env.BOT_TOKEN
+      },
+      body: JSON.stringify({
       telegram_id: msg.from?.id,
       message: msg.text,
       username: msg.from?.username,
       first_name: msg.from?.first_name,
       last_name: msg.from?.last_name
-    }, {
-      headers: { 'X-Bot-Secret': process.env.BOT_TOKEN },
-      timeout: 10000
+      })
     });
   } catch (e) {
     console.error('Failed to persist inbound dialog message:', e.message);

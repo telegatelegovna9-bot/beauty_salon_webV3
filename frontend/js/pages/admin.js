@@ -24,6 +24,7 @@ const AdminIcons = {
 const AdminPage = {
   activeTab: 'dashboard',
   _dialogPollTimer: null,
+  _selectedChatUserId: null,
 
   async render(params = {}) {
     return `
@@ -69,6 +70,7 @@ const AdminPage = {
   async loadTab(tab) {
     const container = document.getElementById('admin-tab-content');
     if (!container) return;
+    if (tab !== 'chats') this.stopDialogAutoRefresh();
     container.innerHTML = `<div style="padding:var(--space-md)">${Utils.skeletonCard(4)}</div>`;
 
     switch (tab) {
@@ -246,33 +248,74 @@ const AdminPage = {
   async loadChats(container) {
     try {
       const { chats } = await API.admin.dialogList();
+      if (!this._selectedChatUserId && chats?.length) this._selectedChatUserId = chats[0].user_id;
       container.innerHTML = `
-        <div style="padding:var(--space-md);display:flex;flex-direction:column;gap:var(--space-sm)">
-          ${!chats || chats.length === 0
-            ? EmptyState.render(AdminIcons.users, 'Нет чатов', '')
-            : chats.map(c => `
-              <div class="card" onclick="AdminPage.openClientModal(${c.user_id})">
-                <div class="card-body">
-                  <div style="display:flex;align-items:center;gap:var(--space-md)">
-                    <div style="width:44px;height:44px;border-radius:50%;background:var(--color-bg-secondary);display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--color-primary)">
-                      ${Utils.getInitials(Utils.getUserName(c))}
-                    </div>
-                    <div style="flex:1;min-width:0">
-                      <div style="font-weight:600">${Utils.getUserName(c)}</div>
-                      <div style="font-size:var(--font-size-xs);color:var(--color-text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-                        ${c.last_direction === 'inbound' ? 'Клиент: ' : 'Вы: '}${c.last_message || 'Нет сообщений'}
-                      </div>
-                    </div>
-                    <div style="font-size:11px;color:var(--color-text-tertiary)">${c.last_at ? new Date(c.last_at).toLocaleDateString('ru-RU') : ''}</div>
+        <div style="padding:var(--space-md);display:grid;grid-template-columns:320px 1fr;gap:var(--space-md);height:calc(100vh - 170px)">
+          <div style="background:var(--color-surface);border:1px solid var(--color-border-light);border-radius:14px;overflow:auto">
+            ${!chats || chats.length === 0
+              ? '<div style="padding:var(--space-md);color:var(--color-text-tertiary)">Нет чатов</div>'
+              : chats.map(c => `
+                <div onclick="AdminPage.selectChat(${c.user_id})" style="padding:12px 14px;border-bottom:1px solid var(--color-border-light);cursor:pointer;background:${this._selectedChatUserId === c.user_id ? 'rgba(255,105,180,.08)' : 'transparent'}">
+                  <div style="font-weight:600">${Utils.getUserName(c)}</div>
+                  <div style="font-size:12px;color:var(--color-text-tertiary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                    ${c.last_direction === 'inbound' ? 'Клиент: ' : 'Вы: '}${c.last_message || 'Нет сообщений'}
                   </div>
                 </div>
-              </div>
-            `).join('')}
+              `).join('')}
+          </div>
+          <div style="background:var(--color-surface);border:1px solid var(--color-border-light);border-radius:14px;display:flex;flex-direction:column;min-height:0">
+            <div id="chat-thread" style="flex:1;overflow:auto;padding:var(--space-md)">Выберите чат</div>
+            <div style="padding:var(--space-md);border-top:1px solid var(--color-border-light);display:flex;gap:8px">
+              <input id="chat-compose-input" class="form-input" placeholder="Сообщение клиенту..." style="flex:1"/>
+              <button class="btn btn-primary" onclick="AdminPage.sendChatMessage()">Отправить</button>
+            </div>
+          </div>
         </div>
       `;
-      this._clients = chats.map(c => ({ ...c, id: c.user_id }));
+      this._chats = chats || [];
+      if (this._selectedChatUserId) await this.loadSelectedChat();
+      this.startDialogAutoRefresh(this._selectedChatUserId);
     } catch (e) {
       container.innerHTML = EmptyState.render(AdminIcons.warning, 'Ошибка', e.message);
+    }
+  },
+
+  async selectChat(userId) {
+    this._selectedChatUserId = userId;
+    await this.loadTab('chats');
+  },
+
+  async loadSelectedChat() {
+    const thread = document.getElementById('chat-thread');
+    if (!thread || !this._selectedChatUserId) return;
+    const { messages } = await API.admin.dialog(this._selectedChatUserId, { limit: 100 });
+    if (!messages?.length) {
+      thread.innerHTML = '<div style="color:var(--color-text-tertiary)">Нет сообщений</div>';
+      return;
+    }
+    thread.innerHTML = messages.map(m => `
+      <div style="display:flex;justify-content:${m.direction === 'outbound' ? 'flex-end' : 'flex-start'};margin-bottom:8px">
+        <div style="max-width:75%;padding:8px 10px;border-radius:10px;background:${m.direction === 'outbound' ? 'var(--color-primary-light)' : 'var(--color-bg-secondary)'}">
+          <div style="font-size:13px">${m.message}</div>
+          <div style="font-size:10px;color:var(--color-text-tertiary);margin-top:4px">${new Date(m.created_at).toLocaleString('ru-RU')}</div>
+        </div>
+      </div>
+    `).join('');
+    thread.scrollTop = thread.scrollHeight;
+  },
+
+  async sendChatMessage() {
+    if (!this._selectedChatUserId) return Toast.error('Выберите чат');
+    const input = document.getElementById('chat-compose-input');
+    const message = input?.value?.trim();
+    if (!message) return;
+    try {
+      await API.admin.sendDialog(this._selectedChatUserId, { message });
+      input.value = '';
+      await this.loadSelectedChat();
+      await this.loadTab('chats');
+    } catch (e) {
+      Toast.error(e.message || 'Ошибка отправки');
     }
   },
 
@@ -439,11 +482,10 @@ const AdminPage = {
     this.stopDialogAutoRefresh();
     this._dialogPollTimer = setInterval(async () => {
       const dialogBox = document.getElementById('dialog-history');
-      if (!dialogBox) {
-        this.stopDialogAutoRefresh();
-        return;
-      }
-      await this.loadDialog(userId);
+      const chatThread = document.getElementById('chat-thread');
+      if (!dialogBox && !chatThread) return this.stopDialogAutoRefresh();
+      if (dialogBox && userId) await this.loadDialog(userId);
+      if (chatThread && this._selectedChatUserId) await this.loadSelectedChat();
     }, 5000);
   },
 
