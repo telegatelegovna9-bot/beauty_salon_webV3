@@ -55,14 +55,13 @@ const Utils = {
   },
 
   isToday(dateStr) {
-    const today = new Date().toISOString().split('T')[0];
-    return dateStr === today;
+    return dateStr === this.getTodayStr();
   },
 
   isTomorrow(dateStr) {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    return dateStr === tomorrow.toISOString().split('T')[0];
+    return dateStr === tomorrow.toLocaleDateString('en-CA', { timeZone: 'Europe/Kyiv' });
   },
 
   getRelativeDate(dateStr) {
@@ -72,7 +71,11 @@ const Utils = {
   },
 
   getTodayStr() {
-    return new Date().toISOString().split('T')[0];
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Kyiv' });
+  },
+
+  getKyivTimeStr() {
+    return new Date().toLocaleTimeString('en-GB', { timeZone: 'Europe/Kyiv', hour: '2-digit', minute: '2-digit', hour12: false });
   },
 
   addDays(dateStr, days) {

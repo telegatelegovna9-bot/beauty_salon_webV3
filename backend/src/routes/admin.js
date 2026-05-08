@@ -57,18 +57,20 @@ router.use(authMiddleware, adminOnly);
 // GET /api/admin/dashboard - dashboard stats
 router.get('/dashboard', (req, res) => {
   const db = getDb();
+  const todayKyiv = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Kyiv' });
+  const monthKyiv = todayKyiv.substring(0, 7);
 
   const stats = {
     total_users: db.prepare("SELECT COUNT(*) as c FROM users").get().c,
     total_clients: db.prepare("SELECT COUNT(*) as c FROM users WHERE role = 'client'").get().c,
     total_masters: db.prepare("SELECT COUNT(*) as c FROM users WHERE role = 'master'").get().c,
     total_bookings: db.prepare("SELECT COUNT(*) as c FROM bookings").get().c,
-    bookings_today: db.prepare("SELECT COUNT(*) as c FROM bookings WHERE booking_date = date('now')").get().c,
+    bookings_today: db.prepare("SELECT COUNT(*) as c FROM bookings WHERE booking_date = ?").get(todayKyiv).c,
     bookings_pending: db.prepare("SELECT COUNT(*) as c FROM bookings WHERE status = 'pending'").get().c,
     bookings_confirmed: db.prepare("SELECT COUNT(*) as c FROM bookings WHERE status = 'confirmed'").get().c,
     revenue_total: db.prepare("SELECT COALESCE(SUM(price), 0) as r FROM bookings WHERE status = 'completed'").get().r,
-    revenue_month: db.prepare("SELECT COALESCE(SUM(price), 0) as r FROM bookings WHERE status = 'completed' AND strftime('%Y-%m', booking_date) = strftime('%Y-%m', 'now')").get().r,
-    revenue_today: db.prepare("SELECT COALESCE(SUM(price), 0) as r FROM bookings WHERE status = 'completed' AND booking_date = date('now')").get().r,
+    revenue_month: db.prepare("SELECT COALESCE(SUM(price), 0) as r FROM bookings WHERE status = 'completed' AND strftime('%Y-%m', booking_date) = ?").get(monthKyiv).r,
+    revenue_today: db.prepare("SELECT COALESCE(SUM(price), 0) as r FROM bookings WHERE status = 'completed' AND booking_date = ?").get(todayKyiv).r,
   };
 
   // Recent bookings

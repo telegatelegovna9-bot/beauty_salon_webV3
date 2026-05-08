@@ -128,8 +128,8 @@ router.post('/', authMiddleware, (req, res) => {
     return res.status(400).json({ error: 'master_id, service_id, booking_date, start_time are required' });
   }
 
-  // Validate date
-  const today = new Date().toISOString().split('T')[0];
+  // Validate date (Kyiv timezone)
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Kyiv' });
   if (booking_date < today) {
     return res.status(400).json({ error: 'Cannot book in the past' });
   }

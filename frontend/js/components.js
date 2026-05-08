@@ -19,9 +19,10 @@ const Calendar = {
     this.minDate = options.minDate || Utils.getTodayStr();
     this.maxDate = options.maxDate || null;
 
-    const today = new Date();
-    this.currentYear = today.getFullYear();
-    this.currentMonth = today.getMonth();
+    const kyivToday = Utils.getTodayStr();
+    const [ky, km] = kyivToday.split('-').map(Number);
+    this.currentYear = ky;
+    this.currentMonth = km - 1;
     this.selectedDate = options.selectedDate || null;
 
     this.containerId = containerId;
@@ -159,8 +160,9 @@ const TimeSlots = {
       <div class="time-slots-grid">
         ${slots.map((slot, index) => {
           const isSelected = this.selectedSlot?.start_time === slot.start_time;
+          const pastClass = slot.past ? 'past' : '';
           return `
-            <div class="time-slot ${slot.available ? 'available' : 'unavailable'} ${isSelected ? 'selected' : ''}"
+            <div class="time-slot ${slot.available ? 'available' : 'unavailable'} ${pastClass} ${isSelected ? 'selected' : ''}"
                  ${slot.available ? `data-slot-index="${index}"` : ''}>
               ${Utils.formatTime(slot.start_time)}
             </div>

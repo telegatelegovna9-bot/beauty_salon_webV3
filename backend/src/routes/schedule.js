@@ -4,6 +4,15 @@ const { authMiddleware } = require('../middleware/auth');
 const { adminOnly, masterOrAdmin } = require('../middleware/rbac');
 const { getDb } = require('../database/db');
 
+const TIMEZONE = 'Europe/Kyiv';
+
+function getKyivNow() {
+  const now = new Date();
+  const kyivDate = now.toLocaleDateString('en-CA', { timeZone: TIMEZONE });
+  const kyivTime = now.toLocaleTimeString('en-GB', { timeZone: TIMEZONE, hour: '2-digit', minute: '2-digit', hour12: false });
+  return { date: kyivDate, time: kyivTime };
+}
+
 /**
  * Generate available time slots for a master on a given date
  */
@@ -63,11 +72,14 @@ router.get('/slots', authMiddleware, (req, res) => {
     return res.status(400).json({ error: 'Invalid date format. Use YYYY-MM-DD' });
   }
 
-  // Don't allow past dates
-  const today = new Date().toISOString().split('T')[0];
+  // Don't allow past dates (Kyiv timezone)
+  const kyivNow = getKyivNow();
+  const today = kyivNow.date;
   if (date < today) {
     return res.json({ slots: [], reason: 'past_date' });
   }
+
+  const isToday = date === today;
 
   const master = db.prepare('SELECT * FROM masters_profiles WHERE id = ? AND is_active = 1').get(master_id);
   if (!master) return res.status(404).json({ error: 'Master not found' });
@@ -114,7 +126,21 @@ router.get('/slots', authMiddleware, (req, res) => {
     WHERE master_id = ? AND booking_date = ? AND status NOT IN ('cancelled')
   `).all(master_id, date);
 
-  const slots = generateSlots(workStart, workEnd, duration, breaks, bookedSlots);
+  let slots = generateSlots(workStart, workEnd, duration, breaks, bookedSlots);
+
+  // Mark past slots as unavailable for today
+  if (isToday) {
+    const [nowH, nowM] = kyivNow.time.split(':').map(Number);
+    const nowMinutes = nowH * 60 + nowM;
+    slots = slots.map(slot => {
+      const [slotH, slotM] = slot.start_time.split(':').map(Number);
+      const slotMinutes = slotH * 60 + slotM;
+      if (slotMinutes <= nowMinutes) {
+        return { ...slot, available: false, past: true };
+      }
+      return slot;
+    });
+  }
 
   res.json({
     slots,
@@ -139,11 +165,12 @@ router.get('/master/:masterId', authMiddleware, (req, res) => {
 
   const schedule = db.prepare('SELECT * FROM schedules WHERE master_id = ? ORDER BY day_of_week').all(masterId);
   const breaks = db.prepare('SELECT * FROM schedule_breaks WHERE master_id = ?').all(masterId);
+  const todayKyiv = getKyivNow().date;
   const exceptions = db.prepare(`
     SELECT * FROM schedule_exceptions 
-    WHERE master_id = ? AND exception_date >= date('now')
+    WHERE master_id = ? AND exception_date >= ?
     ORDER BY exception_date
-  `).all(masterId);
+  `).all(masterId, todayKyiv);
 
   res.json({ schedule, breaks, exceptions });
 });

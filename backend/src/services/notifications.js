@@ -171,11 +171,12 @@ function startNotificationScheduler() {
   cron.schedule('*/30 * * * *', async () => {
     const db = getDb();
     const now = new Date();
+    const TIMEZONE = 'Europe/Kyiv';
 
     // 24-hour reminders
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowDate = tomorrow.toISOString().split('T')[0];
+    const tomorrowDate = tomorrow.toLocaleDateString('en-CA', { timeZone: TIMEZONE });
 
     const bookings24h = db.prepare(`
       SELECT * FROM bookings
@@ -188,9 +189,10 @@ function startNotificationScheduler() {
 
     // 2-hour reminders
     const in2Hours = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-    const todayDate = now.toISOString().split('T')[0];
-    const targetHour = String(in2Hours.getHours()).padStart(2, '0');
-    const targetMinute = String(in2Hours.getMinutes()).padStart(2, '0');
+    const todayDate = now.toLocaleDateString('en-CA', { timeZone: TIMEZONE });
+    const kyivIn2h = in2Hours.toLocaleTimeString('en-GB', { timeZone: TIMEZONE, hour: '2-digit', minute: '2-digit', hour12: false });
+    const targetHour = kyivIn2h.split(':')[0];
+    const targetMinute = kyivIn2h.split(':')[1];
     const targetTime = `${targetHour}:${targetMinute}`;
 
     const bookings2h = db.prepare(`
