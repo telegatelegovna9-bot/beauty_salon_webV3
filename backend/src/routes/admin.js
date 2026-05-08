@@ -6,6 +6,7 @@ const multer = require('multer');
 const { authMiddleware } = require('../middleware/auth');
 const { adminOnly } = require('../middleware/rbac');
 const { getDb } = require('../database/db');
+const { sendTelegramMessage } = require('../services/notifications');
 
 // Configure multer for category image uploads
 const uploadsDir = path.resolve(process.env.UPLOADS_PATH || './uploads');
@@ -280,12 +281,28 @@ router.post('/notify', (req, res) => {
     return res.status(400).json({ error: 'user_id and message are required' });
   }
 
+  const user = db.prepare('SELECT id, telegram_id FROM users WHERE id = ?').get(user_id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
   const result = db.prepare(`
     INSERT INTO notifications_log (user_id, type, message, status)
     VALUES (?, ?, ?, 'pending')
   `).run(user_id, type, message);
 
-  res.json({ success: true, notification_id: result.lastInsertRowid });
+  sendTelegramMessage(user.telegram_id, message)
+    .then((sent) => {
+      db.prepare(`
+        UPDATE notifications_log
+        SET status = ?, sent_at = CASE WHEN ? = 'sent' THEN CURRENT_TIMESTAMP ELSE sent_at END
+        WHERE id = ?
+      `).run(sent ? 'sent' : 'failed', sent ? 'sent' : 'failed', result.lastInsertRowid);
+    })
+    .catch((e) => {
+      console.error('Admin notify send failed:', e.message);
+      db.prepare('UPDATE notifications_log SET status = ? WHERE id = ?').run('failed', result.lastInsertRowid);
+    });
+
+  res.json({ success: true, notification_id: result.lastInsertRowid, queued: true });
 });
 
 // POST /api/admin/categories/upload - upload category image

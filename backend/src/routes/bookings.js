@@ -3,6 +3,7 @@ const router = express.Router();
 const { authMiddleware } = require('../middleware/auth');
 const { adminOnly, masterOrAdmin } = require('../middleware/rbac');
 const { getDb } = require('../database/db');
+const { sendBookingNotification } = require('../services/notifications');
 
 // GET /api/bookings/my - get client's own bookings
 router.get('/my', authMiddleware, (req, res) => {
@@ -275,6 +276,12 @@ router.put('/:id/status', authMiddleware, (req, res) => {
   );
 
   const updated = db.prepare('SELECT * FROM bookings WHERE id = ?').get(req.params.id);
+
+  if (status === 'confirmed' || status === 'cancelled') {
+    sendBookingNotification(req.params.id, status === 'confirmed' ? 'booking_confirmed' : 'booking_cancelled')
+      .catch((e) => console.error('Notification send failed:', e.message));
+  }
+
   res.json({ booking: updated, success: true });
 });
 

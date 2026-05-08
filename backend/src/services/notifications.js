@@ -1,23 +1,34 @@
 const cron = require('node-cron');
 const { getDb } = require('../database/db');
 
-let botInstance = null;
-
-function setBotInstance(bot) {
-  botInstance = bot;
-}
-
 async function sendTelegramMessage(telegramId, message, options = {}) {
-  if (!botInstance) {
-    console.warn('Bot instance not set, cannot send notification');
+  const botToken = process.env.BOT_TOKEN;
+  if (!botToken) {
+    console.warn('BOT_TOKEN not set, cannot send notification');
     return false;
   }
 
   try {
-    await botInstance.sendMessage(telegramId, message, {
-      parse_mode: 'HTML',
-      ...options
+    const payload = {
+      chat_id: String(telegramId),
+      text: message,
+      parse_mode: 'HTML'
+    };
+
+    if (options.reply_markup) payload.reply_markup = options.reply_markup;
+
+    const resp = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
     });
+
+    if (!resp.ok) {
+      const body = await resp.text();
+      console.error(`Failed to send message to ${telegramId}: HTTP ${resp.status} ${body}`);
+      return false;
+    }
+
     return true;
   } catch (error) {
     console.error(`Failed to send message to ${telegramId}:`, error.message);
@@ -209,4 +220,4 @@ function startNotificationScheduler() {
   console.log('✅ Notification scheduler started');
 }
 
-module.exports = { setBotInstance, sendBookingNotification, sendTelegramMessage, startNotificationScheduler };
+module.exports = { sendBookingNotification, sendTelegramMessage, startNotificationScheduler };

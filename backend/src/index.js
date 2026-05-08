@@ -37,7 +37,7 @@ app.use(cors({
     callback(null, true); // Allow all for now
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Telegram-Init-Data', 'X-Dev-User-Id'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Telegram-Init-Data', 'X-Dev-User-Id', 'X-Bot-Secret'],
   credentials: true
 }));
 
