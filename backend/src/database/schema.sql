@@ -281,6 +281,23 @@ CREATE INDEX IF NOT EXISTS idx_notifications_booking ON notifications_log(bookin
 CREATE INDEX IF NOT EXISTS idx_notifications_status ON notifications_log(status);
 
 -- ============================================
+-- DIALOG MESSAGES (admin <-> user bot chat)
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS dialog_messages (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  direction TEXT NOT NULL CHECK(direction IN ('inbound', 'outbound')),
+  message TEXT NOT NULL,
+  source TEXT DEFAULT 'bot',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_dialog_user ON dialog_messages(user_id);
+CREATE INDEX IF NOT EXISTS idx_dialog_created ON dialog_messages(created_at);
+
+-- ============================================
 -- REVIEWS
 -- ============================================
 

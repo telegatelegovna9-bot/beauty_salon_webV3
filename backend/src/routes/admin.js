@@ -305,6 +305,65 @@ router.post('/notify', (req, res) => {
   res.json({ success: true, notification_id: result.lastInsertRowid, queued: true });
 });
 
+// GET /api/admin/dialog/:userId - fetch recent dialog messages
+router.get('/dialog/:userId', (req, res) => {
+  const db = getDb();
+  const limit = Math.min(parseInt(req.query.limit || '50', 10), 200);
+  const messages = db.prepare(`
+    SELECT id, user_id, direction, message, source, created_at
+    FROM dialog_messages
+    WHERE user_id = ?
+    ORDER BY id DESC
+    LIMIT ?
+  `).all(req.params.userId, limit).reverse();
+  res.json({ messages });
+});
+
+// POST /api/admin/dialog/:userId - send message and store outbound
+router.post('/dialog/:userId', async (req, res) => {
+  const db = getDb();
+  const { message } = req.body;
+  if (!message || !String(message).trim()) {
+    return res.status(400).json({ error: 'message is required' });
+  }
+
+  const user = db.prepare('SELECT id, telegram_id FROM users WHERE id = ?').get(req.params.userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const text = String(message).trim();
+  const sent = await sendTelegramMessage(user.telegram_id, text);
+
+  db.prepare(`
+    INSERT INTO dialog_messages (user_id, direction, message, source)
+    VALUES (?, 'outbound', ?, 'admin')
+  `).run(user.id, text);
+
+  res.json({ success: sent, sent });
+});
+
+// POST /api/admin/dialog/incoming - bot writes inbound user messages
+router.post('/dialog/incoming', (req, res) => {
+  if (!req.user?.is_bot && req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  const db = getDb();
+  const { telegram_id, message } = req.body;
+  if (!telegram_id || !message) {
+    return res.status(400).json({ error: 'telegram_id and message are required' });
+  }
+
+  const user = db.prepare('SELECT id FROM users WHERE telegram_id = ?').get(String(telegram_id));
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  db.prepare(`
+    INSERT INTO dialog_messages (user_id, direction, message, source)
+    VALUES (?, 'inbound', ?, 'bot')
+  `).run(user.id, String(message).trim());
+
+  res.json({ success: true });
+});
+
 // POST /api/admin/categories/upload - upload category image
 router.post('/categories/upload', upload.single('image'), (req, res) => {
   const db = getDb();

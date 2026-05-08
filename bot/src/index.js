@@ -221,6 +221,28 @@ bot.on('web_app_data', async (msg) => {
 });
 
 // ============================================
+// INCOMING USER MESSAGES -> BACKEND DIALOG
+// ============================================
+
+bot.on('message', async (msg) => {
+  try {
+    if (!msg.text) return;
+    if (msg.text.startsWith('/')) return; // commands handled separately
+    if (msg.web_app_data) return;
+
+    const axios = require('axios');
+    await axios.post(`http://localhost:${process.env.PORT || 3001}/api/admin/dialog/incoming`, {
+      telegram_id: msg.from?.id,
+      message: msg.text
+    }, {
+      headers: { 'X-Bot-Secret': process.env.BOT_TOKEN }
+    });
+  } catch (e) {
+    console.error('Failed to persist inbound dialog message:', e.message);
+  }
+});
+
+// ============================================
 // ERROR HANDLING
 // ============================================
 

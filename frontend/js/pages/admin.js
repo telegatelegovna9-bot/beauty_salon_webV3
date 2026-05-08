@@ -312,9 +312,17 @@ const AdminPage = {
           <textarea class="form-input form-textarea" id="bot-direct-message" placeholder="Например: Здравствуйте! Пожалуйста, подтвердите ваш визит."></textarea>
           <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="AdminPage.sendDirectMessage(${userId})">Отправить сообщение</button>
         </div>
+        <div class="form-group">
+          <label class="form-label">Диалог</label>
+          <div id="dialog-history" style="max-height:180px;overflow:auto;border:1px solid var(--color-border);border-radius:10px;padding:8px;font-size:var(--font-size-sm);color:var(--color-text-secondary)">
+            Загрузка...
+          </div>
+          <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="AdminPage.loadDialog(${userId})">Обновить диалог</button>
+        </div>
         <button class="btn btn-primary btn-full" onclick="AdminPage.saveCRM(${userId})">Сохранить</button>
       </div>
     `, Utils.getUserName(client));
+    this.loadDialog(userId);
   },
 
   async saveCRM(userId) {
@@ -349,12 +357,34 @@ const AdminPage = {
       return;
     }
     try {
-      await API.admin.notify({ user_id: userId, message, type: 'custom' });
+      await API.admin.sendDialog(userId, { message });
       Toast.success('Сообщение отправлено');
       const input = document.getElementById('bot-direct-message');
       if (input) input.value = '';
+      await this.loadDialog(userId);
     } catch (e) {
       Toast.error(e.message || 'Ошибка отправки');
+    }
+  },
+
+  async loadDialog(userId) {
+    const box = document.getElementById('dialog-history');
+    if (!box) return;
+    try {
+      const { messages } = await API.admin.dialog(userId, { limit: 30 });
+      if (!messages || messages.length === 0) {
+        box.innerHTML = '<div style="color:var(--color-text-tertiary)">Пока нет сообщений</div>';
+        return;
+      }
+      box.innerHTML = messages.map(m => `
+        <div style="margin-bottom:6px;padding:6px 8px;border-radius:8px;background:${m.direction === 'outbound' ? 'var(--color-bg-secondary)' : 'rgba(255,0,128,0.06)'}">
+          <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:2px">${m.direction === 'outbound' ? 'Вы → Клиент' : 'Клиент → Бот'} · ${new Date(m.created_at).toLocaleString('ru-RU')}</div>
+          <div style="color:var(--color-text-primary)">${m.message}</div>
+        </div>
+      `).join('');
+      box.scrollTop = box.scrollHeight;
+    } catch (e) {
+      box.innerHTML = `<div style="color:var(--color-danger)">Ошибка загрузки диалога</div>`;
     }
   },
 
