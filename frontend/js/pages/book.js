@@ -371,8 +371,9 @@ const BookPage = {
         return;
       }
       const phoneDigits = phone.replace(/\D/g, '');
-      if (phoneDigits.length < 10 || phoneDigits.length > 15) {
-        Toast.error('Номер телефона должен содержать от 10 до 15 цифр');
+      const isValidUaPhone = /^0\d{9}$/.test(phoneDigits) || /^380\d{9}$/.test(phoneDigits);
+      if (!isValidUaPhone) {
+        Toast.error('Введите номер в формате +380XXXXXXXXX или 0XXXXXXXXX');
         if (btn) {
           btn.disabled = false;
           btn.textContent = '\u2713 Подтвердить запись';

@@ -3,7 +3,7 @@ const router = express.Router();
 const { authMiddleware } = require('../middleware/auth');
 const { adminOnly, masterOrAdmin } = require('../middleware/rbac');
 const { getDb } = require('../database/db');
-const { isValidPhone, normalizePhone } = require('../utils/phone');
+const { isValidUaPhone, normalizePhone } = require('../utils/phone');
 
 // GET /api/bookings/my - get client's own bookings
 router.get('/my', authMiddleware, (req, res) => {
@@ -133,8 +133,8 @@ router.post('/', authMiddleware, (req, res) => {
   if (!clientPhone) {
     return res.status(400).json({ error: 'client_phone is required' });
   }
-  if (!isValidPhone(clientPhone)) {
-    return res.status(400).json({ error: 'Phone must contain from 10 to 15 digits' });
+  if (!isValidUaPhone(clientPhone)) {
+    return res.status(400).json({ error: 'Введите украинский номер в формате +380XXXXXXXXX или 0XXXXXXXXX' });
   }
 
   // Validate date (Kyiv timezone)

@@ -6,7 +6,7 @@ const fs = require('fs');
 const { authMiddleware } = require('../middleware/auth');
 const { adminOnly } = require('../middleware/rbac');
 const { getDb } = require('../database/db');
-const { isValidPhone, normalizePhone } = require('../utils/phone');
+const { isValidUaPhone, normalizePhone } = require('../utils/phone');
 
 const uploadsDir = path.resolve(process.env.UPLOADS_PATH || './uploads');
 const userAvatarsDir = path.join(uploadsDir, 'users');
@@ -100,8 +100,8 @@ router.put('/profile', authMiddleware, (req, res) => {
   const { phone, first_name, last_name } = req.body;
   const normalizedPhone = normalizePhone(phone);
 
-  if (normalizedPhone && !isValidPhone(normalizedPhone)) {
-    return res.status(400).json({ error: 'Phone must contain from 10 to 15 digits' });
+  if (normalizedPhone && !isValidUaPhone(normalizedPhone)) {
+    return res.status(400).json({ error: 'Введите украинский номер в формате +380XXXXXXXXX или 0XXXXXXXXX' });
   }
 
   db.prepare(`

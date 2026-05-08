@@ -188,9 +188,9 @@ const ProfilePage = {
     const lastName = document.getElementById('edit-last-name')?.value;
     const phone = document.getElementById('edit-phone')?.value?.trim() || '';
     const phoneDigits = phone.replace(/\D/g, '');
-
-    if (phone && (phoneDigits.length < 10 || phoneDigits.length > 15)) {
-      Toast.error('Номер телефона должен содержать от 10 до 15 цифр');
+    const isValidUaPhone = /^0\d{9}$/.test(phoneDigits) || /^380\d{9}$/.test(phoneDigits);
+    if (phone && !isValidUaPhone) {
+      Toast.error('Введите номер в формате +380XXXXXXXXX или 0XXXXXXXXX');
       document.getElementById('edit-phone')?.focus();
       return;
     }
