@@ -28,7 +28,7 @@
 
 .category-card-image {
   width: 100%;
-  height: clamp(140px, 24vw, 190px);
+  height: clamp(150px, 26vw, 200px);
   background: linear-gradient(135deg, #FFE4E9 0%, #FFD6E7 100%);
   background-size: cover;
   background-position: center;
@@ -50,7 +50,7 @@
 .category-card-overlay {
   margin-top: auto;
   width: 100%;
-  padding: 12px var(--space-md) 10px;
+  padding: 14px var(--space-md) 8px;
   background: linear-gradient(180deg, rgba(33, 20, 31, 0) 0%, rgba(33, 20, 31, 0.58) 62%, rgba(33, 20, 31, 0.78) 100%);
 }
 
