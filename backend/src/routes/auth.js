@@ -6,6 +6,7 @@ const fs = require('fs');
 const { authMiddleware } = require('../middleware/auth');
 const { adminOnly } = require('../middleware/rbac');
 const { getDb } = require('../database/db');
+const { isValidPhone, normalizePhone } = require('../utils/phone');
 
 const uploadsDir = path.resolve(process.env.UPLOADS_PATH || './uploads');
 const userAvatarsDir = path.join(uploadsDir, 'users');
@@ -97,10 +98,15 @@ router.get('/me', authMiddleware, (req, res) => {
 router.put('/profile', authMiddleware, (req, res) => {
   const db = getDb();
   const { phone, first_name, last_name } = req.body;
+  const normalizedPhone = normalizePhone(phone);
+
+  if (normalizedPhone && !isValidPhone(normalizedPhone)) {
+    return res.status(400).json({ error: 'Phone must contain from 10 to 15 digits' });
+  }
 
   db.prepare(`
     UPDATE users SET phone = ?, first_name = ?, last_name = ? WHERE id = ?
-  `).run(phone || null, first_name || req.user.first_name, last_name || req.user.last_name, req.user.id);
+  `).run(normalizedPhone || null, first_name || req.user.first_name, last_name || req.user.last_name, req.user.id);
 
   const updated = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
   res.json({ success: true, user: updated });

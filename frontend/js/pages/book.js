@@ -370,6 +370,16 @@ const BookPage = {
         document.getElementById('booking-phone')?.focus();
         return;
       }
+      const phoneDigits = phone.replace(/\D/g, '');
+      if (phoneDigits.length < 10 || phoneDigits.length > 15) {
+        Toast.error('Номер телефона должен содержать от 10 до 15 цифр');
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '\u2713 Подтвердить запись';
+        }
+        document.getElementById('booking-phone')?.focus();
+        return;
+      }
       const notes = document.getElementById('booking-notes')?.value || '';
 
       const { booking } = await API.bookings.create({

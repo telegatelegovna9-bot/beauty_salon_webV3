@@ -3,6 +3,7 @@ const router = express.Router();
 const { authMiddleware } = require('../middleware/auth');
 const { adminOnly, masterOrAdmin } = require('../middleware/rbac');
 const { getDb } = require('../database/db');
+const { isValidPhone, normalizePhone } = require('../utils/phone');
 
 // GET /api/bookings/my - get client's own bookings
 router.get('/my', authMiddleware, (req, res) => {
@@ -128,8 +129,12 @@ router.post('/', authMiddleware, (req, res) => {
     return res.status(400).json({ error: 'master_id, service_id, booking_date, start_time are required' });
   }
 
-  if (!client_phone || !client_phone.trim()) {
+  const clientPhone = normalizePhone(client_phone);
+  if (!clientPhone) {
     return res.status(400).json({ error: 'client_phone is required' });
+  }
+  if (!isValidPhone(clientPhone)) {
+    return res.status(400).json({ error: 'Phone must contain from 10 to 15 digits' });
   }
 
   // Validate date (Kyiv timezone)
@@ -189,13 +194,13 @@ router.post('/', authMiddleware, (req, res) => {
     }
 
     // Save phone to user profile as well
-    db.prepare('UPDATE users SET phone = ? WHERE id = ?').run(client_phone.trim(), req.user.id);
+    db.prepare('UPDATE users SET phone = ? WHERE id = ?').run(clientPhone, req.user.id);
 
     // Create booking
     const result = db.prepare(`
       INSERT INTO bookings (client_id, master_id, service_id, booking_date, start_time, end_time, status, price, client_notes, client_phone)
       VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
-    `).run(req.user.id, master_id, service_id, booking_date, start_time, end_time, price, notes || null, client_phone.trim());
+    `).run(req.user.id, master_id, service_id, booking_date, start_time, end_time, price, notes || null, clientPhone);
 
     return db.prepare(`
       SELECT b.*,

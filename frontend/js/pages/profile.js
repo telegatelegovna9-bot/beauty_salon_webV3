@@ -186,10 +186,17 @@ const ProfilePage = {
   async saveProfile() {
     const firstName = document.getElementById('edit-first-name')?.value;
     const lastName = document.getElementById('edit-last-name')?.value;
-    const phone = document.getElementById('edit-phone')?.value;
+    const phone = document.getElementById('edit-phone')?.value?.trim() || '';
+    const phoneDigits = phone.replace(/\D/g, '');
+
+    if (phone && (phoneDigits.length < 10 || phoneDigits.length > 15)) {
+      Toast.error('Номер телефона должен содержать от 10 до 15 цифр');
+      document.getElementById('edit-phone')?.focus();
+      return;
+    }
 
     try {
-      const { user } = await API.auth.updateProfile({ first_name: firstName, last_name: lastName, phone });
+      const { user } = await API.auth.updateProfile({ first_name: firstName, last_name: lastName, phone: phone || null });
       Store.set('user', user);
       Modal.close();
       Utils.haptic('success');
