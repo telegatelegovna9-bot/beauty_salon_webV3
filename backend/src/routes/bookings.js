@@ -60,7 +60,7 @@ router.get('/master', authMiddleware, masterOrAdmin, (req, res) => {
     SELECT b.*,
       s.name as service_name, s.category as service_category, s.duration_minutes,
       u.first_name as client_first_name, u.last_name as client_last_name,
-      u.username as client_username, u.phone as client_phone, u.telegram_id as client_telegram_id
+      u.username as client_username, COALESCE(b.client_phone, u.phone) as client_phone, u.telegram_id as client_telegram_id
     FROM bookings b
     JOIN services s ON b.service_id = s.id
     JOIN users u ON b.client_id = u.id
@@ -95,7 +95,7 @@ router.get('/:id', authMiddleware, (req, res) => {
       mp.display_name as master_name, mp.avatar_url as master_avatar,
       u_master.first_name as master_first_name, u_master.last_name as master_last_name,
       u_client.first_name as client_first_name, u_client.last_name as client_last_name,
-      u_client.username as client_username, u_client.phone as client_phone
+      u_client.username as client_username, COALESCE(b.client_phone, u_client.phone) as client_phone
     FROM bookings b
     JOIN services s ON b.service_id = s.id
     JOIN masters_profiles mp ON b.master_id = mp.id
@@ -122,10 +122,14 @@ router.get('/:id', authMiddleware, (req, res) => {
 // POST /api/bookings - create booking (atomic, race-condition safe)
 router.post('/', authMiddleware, (req, res) => {
   const db = getDb();
-  const { master_id, service_id, booking_date, start_time, notes } = req.body;
+  const { master_id, service_id, booking_date, start_time, notes, client_phone } = req.body;
 
   if (!master_id || !service_id || !booking_date || !start_time) {
     return res.status(400).json({ error: 'master_id, service_id, booking_date, start_time are required' });
+  }
+
+  if (!client_phone || !client_phone.trim()) {
+    return res.status(400).json({ error: 'client_phone is required' });
   }
 
   // Validate date (Kyiv timezone)
@@ -184,11 +188,14 @@ router.post('/', authMiddleware, (req, res) => {
       if (slotStart < wStart || endMinutes > wEnd) throw new Error('OUTSIDE_WORKING_HOURS');
     }
 
+    // Save phone to user profile as well
+    db.prepare('UPDATE users SET phone = ? WHERE id = ?').run(client_phone.trim(), req.user.id);
+
     // Create booking
     const result = db.prepare(`
-      INSERT INTO bookings (client_id, master_id, service_id, booking_date, start_time, end_time, status, price, client_notes)
-      VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)
-    `).run(req.user.id, master_id, service_id, booking_date, start_time, end_time, price, notes || null);
+      INSERT INTO bookings (client_id, master_id, service_id, booking_date, start_time, end_time, status, price, client_notes, client_phone)
+      VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?)
+    `).run(req.user.id, master_id, service_id, booking_date, start_time, end_time, price, notes || null, client_phone.trim());
 
     return db.prepare(`
       SELECT b.*,

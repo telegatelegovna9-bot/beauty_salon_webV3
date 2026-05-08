@@ -329,6 +329,12 @@ const BookPage = {
         </div>
       </div>
 
+      <!-- Phone -->
+      <div class="form-group">
+        <label class="form-label">Номер телефона <span style="color:var(--color-primary)">*</span></label>
+        <input class="form-input" id="booking-phone" type="tel" value="${(Store.get('user') || {}).phone || ''}" placeholder="+380 XX XXX XX XX" required>
+      </div>
+
       <!-- Notes -->
       <div class="form-group">
         <label class="form-label">Комментарий (необязательно)</label>
@@ -354,6 +360,16 @@ const BookPage = {
     }
 
     try {
+      const phone = document.getElementById('booking-phone')?.value?.trim() || '';
+      if (!phone) {
+        Toast.error('Укажите номер телефона');
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '\u2713 Подтвердить запись';
+        }
+        document.getElementById('booking-phone')?.focus();
+        return;
+      }
       const notes = document.getElementById('booking-notes')?.value || '';
 
       const { booking } = await API.bookings.create({
@@ -361,7 +377,8 @@ const BookPage = {
         service_id: this.state.service.id,
         booking_date: this.state.date,
         start_time: this.state.slot.start_time,
-        notes: notes || undefined
+        notes: notes || undefined,
+        client_phone: phone
       });
 
       Utils.haptic('success');

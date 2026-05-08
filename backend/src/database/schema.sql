@@ -176,6 +176,7 @@ CREATE TABLE IF NOT EXISTS bookings (
   price REAL,
   notes TEXT,
   client_notes TEXT,
+  client_phone TEXT,
   cancelled_by TEXT,
   cancel_reason TEXT,
   reminder_24h_sent INTEGER DEFAULT 0,

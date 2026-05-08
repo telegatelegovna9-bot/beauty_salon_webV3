@@ -231,6 +231,14 @@ async function getDbAsync() {
   if (fs.existsSync(schemaPath)) {
     applySchema(sqlDb, schemaPath);
     ensureFlexibleServiceCategories(sqlDb);
+    // Add client_phone column to bookings if missing
+    try {
+      const cols = sqlDb.exec("PRAGMA table_info(bookings)");
+      const colNames = (cols[0]?.values || []).map(r => r[1]);
+      if (!colNames.includes('client_phone')) {
+        sqlDb.run("ALTER TABLE bookings ADD COLUMN client_phone TEXT");
+      }
+    } catch (e) {}
     // Save after schema creation
     const data = sqlDb.export();
     fs.writeFileSync(dbPath, Buffer.from(data));
