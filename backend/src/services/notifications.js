@@ -1,0 +1,210 @@
+const cron = require('node-cron');
+const { getDb } = require('../database/db');
+
+let botInstance = null;
+
+function setBotInstance(bot) {
+  botInstance = bot;
+}
+
+async function sendTelegramMessage(telegramId, message, options = {}) {
+  if (!botInstance) {
+    console.warn('Bot instance not set, cannot send notification');
+    return false;
+  }
+
+  try {
+    await botInstance.sendMessage(telegramId, message, {
+      parse_mode: 'HTML',
+      ...options
+    });
+    return true;
+  } catch (error) {
+    console.error(`Failed to send message to ${telegramId}:`, error.message);
+    return false;
+  }
+}
+
+function formatBookingMessage(booking, type) {
+  const date = new Date(booking.booking_date + 'T' + booking.start_time);
+  const dateStr = date.toLocaleDateString('ru-RU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const timeStr = booking.start_time;
+
+  const messages = {
+    reminder_24h: `
+⏰ <b>Напоминание о записи</b>
+
+Завтра у вас запись:
+📅 ${dateStr}
+🕐 ${timeStr}
+💅 ${booking.service_name}
+👤 Мастер: ${booking.master_name}
+💰 Стоимость: ${booking.price ? booking.price + ' ₽' : 'уточните у мастера'}
+
+Ждём вас! 🌸`,
+
+    reminder_2h: `
+⏰ <b>Скоро ваша запись!</b>
+
+Через 2 часа:
+🕐 ${timeStr}
+💅 ${booking.service_name}
+👤 Мастер: ${booking.master_name}
+
+Не забудьте! 💕`,
+
+    booking_confirmed: `
+✅ <b>Запись подтверждена!</b>
+
+📅 ${dateStr}
+🕐 ${timeStr}
+💅 ${booking.service_name}
+👤 Мастер: ${booking.master_name}
+💰 Стоимость: ${booking.price ? booking.price + ' ₽' : 'уточните у мастера'}
+
+Ждём вас! 🌸`,
+
+    booking_cancelled: `
+❌ <b>Запись отменена</b>
+
+📅 ${dateStr}
+🕐 ${timeStr}
+💅 ${booking.service_name}
+
+Вы можете записаться на другое время через приложение.`
+  };
+
+  return messages[type] || '';
+}
+
+async function sendReminder(booking, type) {
+  const db = getDb();
+
+  const fullBooking = db.prepare(`
+    SELECT b.*,
+      s.name as service_name,
+      mp.display_name as master_name,
+      u.telegram_id as client_telegram_id
+    FROM bookings b
+    JOIN services s ON b.service_id = s.id
+    JOIN masters_profiles mp ON b.master_id = mp.id
+    JOIN users u ON b.client_id = u.id
+    WHERE b.id = ?
+  `).get(booking.id);
+
+  if (!fullBooking) return;
+
+  const message = formatBookingMessage(fullBooking, type);
+  if (!message) return;
+
+  const inlineKeyboard = {
+    inline_keyboard: [[
+      { text: '✅ Подтвердить', callback_data: `confirm_${booking.id}` },
+      { text: '❌ Отменить', callback_data: `cancel_${booking.id}` }
+    ]]
+  };
+
+  const sent = await sendTelegramMessage(
+    fullBooking.client_telegram_id,
+    message,
+    { reply_markup: JSON.stringify(inlineKeyboard) }
+  );
+
+  // Log notification
+  db.prepare(`
+    INSERT INTO notifications_log (user_id, booking_id, type, message, status, sent_at)
+    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+  `).run(
+    fullBooking.client_id,
+    booking.id,
+    type,
+    message,
+    sent ? 'sent' : 'failed'
+  );
+
+  // Mark as sent
+  if (sent) {
+    if (type === 'reminder_24h') {
+      db.prepare('UPDATE bookings SET reminder_24h_sent = 1 WHERE id = ?').run(booking.id);
+    } else if (type === 'reminder_2h') {
+      db.prepare('UPDATE bookings SET reminder_2h_sent = 1 WHERE id = ?').run(booking.id);
+    }
+  }
+}
+
+async function sendBookingNotification(bookingId, type) {
+  const db = getDb();
+
+  const booking = db.prepare(`
+    SELECT b.*,
+      s.name as service_name,
+      mp.display_name as master_name,
+      u.telegram_id as client_telegram_id
+    FROM bookings b
+    JOIN services s ON b.service_id = s.id
+    JOIN masters_profiles mp ON b.master_id = mp.id
+    JOIN users u ON b.client_id = u.id
+    WHERE b.id = ?
+  `).get(bookingId);
+
+  if (!booking) return;
+
+  const message = formatBookingMessage(booking, type);
+  if (!message) return;
+
+  const sent = await sendTelegramMessage(booking.client_telegram_id, message);
+
+  db.prepare(`
+    INSERT INTO notifications_log (user_id, booking_id, type, message, status, sent_at)
+    VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+  `).run(
+    booking.client_id,
+    bookingId,
+    type,
+    message,
+    sent ? 'sent' : 'failed'
+  );
+}
+
+function startNotificationScheduler() {
+  // Check every 30 minutes for upcoming reminders
+  cron.schedule('*/30 * * * *', async () => {
+    const db = getDb();
+    const now = new Date();
+
+    // 24-hour reminders
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowDate = tomorrow.toISOString().split('T')[0];
+
+    const bookings24h = db.prepare(`
+      SELECT * FROM bookings
+      WHERE booking_date = ? AND status IN ('pending', 'confirmed') AND reminder_24h_sent = 0
+    `).all(tomorrowDate);
+
+    for (const booking of bookings24h) {
+      await sendReminder(booking, 'reminder_24h');
+    }
+
+    // 2-hour reminders
+    const in2Hours = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    const todayDate = now.toISOString().split('T')[0];
+    const targetHour = String(in2Hours.getHours()).padStart(2, '0');
+    const targetMinute = String(in2Hours.getMinutes()).padStart(2, '0');
+    const targetTime = `${targetHour}:${targetMinute}`;
+
+    const bookings2h = db.prepare(`
+      SELECT * FROM bookings
+      WHERE booking_date = ? AND start_time BETWEEN ? AND ?
+      AND status IN ('pending', 'confirmed') AND reminder_2h_sent = 0
+    `).all(todayDate, targetTime, `${targetHour}:59`);
+
+    for (const booking of bookings2h) {
+      await sendReminder(booking, 'reminder_2h');
+    }
+  });
+
+  console.log('✅ Notification scheduler started');
+}
+
+module.exports = { setBotInstance, sendBookingNotification, sendTelegramMessage, startNotificationScheduler };
