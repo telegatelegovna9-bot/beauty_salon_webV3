@@ -111,7 +111,8 @@ const HomePage = {
         return;
       }
 
-      container.innerHTML = categories.map(cat => {
+      const maxVisible = 4;
+      const renderCard = (cat) => {
         const imageStyle = cat.image_path
           ? `background-image:url('${Config.API_URL.replace('/api', '')}${cat.image_path}')`
           : '';
@@ -125,10 +126,35 @@ const HomePage = {
             </div>
           </div>
         `;
-      }).join('');
+      };
+
+      const visibleCards = categories.slice(0, maxVisible).map(renderCard).join('');
+      const hiddenCards = categories.length > maxVisible
+        ? categories.slice(maxVisible).map(renderCard).join('')
+        : '';
+      const showMoreBtn = categories.length > maxVisible
+        ? `<div style="grid-column:1/-1;text-align:center;margin-top:var(--space-sm)">
+            <button class="btn btn-outline btn-full" onclick="HomePage.showMoreCategories(this)">Показать ещё</button>
+          </div>`
+        : '';
+
+      container.innerHTML = visibleCards
+        + (hiddenCards ? `<div id="home-categories-hidden" style="display:none;contents:none">${hiddenCards}</div>` : '')
+        + showMoreBtn;
     } catch (e) {
       console.error('Failed to load categories:', e);
     }
+  },
+
+  showMoreCategories(btn) {
+    const hidden = document.getElementById('home-categories-hidden');
+    if (!hidden) return;
+    const container = document.getElementById('home-categories-list');
+    if (!container) return;
+    const btnWrapper = btn.parentElement;
+    hidden.insertAdjacentHTML('beforebegin', hidden.innerHTML);
+    hidden.remove();
+    if (btnWrapper) btnWrapper.remove();
   },
 
   async loadMasters() {
