@@ -85,6 +85,17 @@ function formatBookingMessage(booking, type) {
 Вы можете записаться на другое время через приложение.`
     ,
 
+    booking_completed: `
+✨ <b>Визит завершён</b>
+
+Спасибо, что выбрали нас! 💖
+
+Если вам удобно, поделитесь впечатлением о визите:
+зайдите в мини‑приложение → раздел «Записи» → завершённая услуга → «Оставить отзыв».
+
+Ваш отзыв помогает нам становиться лучше 🌸`
+    ,
+
     new_booking_master: `
 🔔 <b>Новая запись</b>
 
@@ -178,13 +189,16 @@ async function sendBookingNotification(bookingId, type) {
 
   const sent = await sendTelegramMessage(booking.client_telegram_id, message);
 
+  const logType = ['reminder_24h', 'reminder_2h', 'booking_confirmed', 'booking_cancelled', 'booking_rescheduled', 'custom']
+    .includes(type) ? type : 'custom';
+
   db.prepare(`
     INSERT INTO notifications_log (user_id, booking_id, type, message, status, sent_at)
     VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
   `).run(
     booking.client_id,
     bookingId,
-    type,
+    logType,
     message,
     sent ? 'sent' : 'failed'
   );

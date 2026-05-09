@@ -280,8 +280,11 @@ router.put('/:id/status', authMiddleware, (req, res) => {
 
   const updated = db.prepare('SELECT * FROM bookings WHERE id = ?').get(req.params.id);
 
-  if (status === 'confirmed' || status === 'cancelled') {
-    sendBookingNotification(req.params.id, status === 'confirmed' ? 'booking_confirmed' : 'booking_cancelled')
+  if (status === 'confirmed' || status === 'cancelled' || status === 'completed') {
+    const notificationType = status === 'confirmed'
+      ? 'booking_confirmed'
+      : (status === 'cancelled' ? 'booking_cancelled' : 'booking_completed');
+    sendBookingNotification(req.params.id, notificationType)
       .catch((e) => console.error('Notification send failed:', e.message));
   }
 
