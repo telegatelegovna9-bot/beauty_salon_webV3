@@ -315,9 +315,17 @@ const BookingDetailPage = {
 
   showReviewDetails() {
     const rating = Number(this.booking.review_rating) || 0;
-    const reviewDate = this.booking.review_created_at
-      ? Utils.formatDate(this.booking.review_created_at, 'full')
-      : '';
+    let reviewDate = '';
+    if (this.booking.review_created_at) {
+      const parsed = new Date(String(this.booking.review_created_at).replace(' ', 'T'));
+      if (!Number.isNaN(parsed.getTime())) {
+        const day = parsed.getDate();
+        const month = parsed.getMonth();
+        const year = parsed.getFullYear();
+        const dayOfWeek = parsed.getDay();
+        reviewDate = `${Config.DAYS_FULL[dayOfWeek]}, ${day} ${Config.MONTHS_GENITIVE[month]} ${year}`;
+      }
+    }
 
     Modal.open(`
       <div style="display:flex;flex-direction:column;gap:var(--space-md)">
