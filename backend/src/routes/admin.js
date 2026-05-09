@@ -6,6 +6,7 @@ const multer = require('multer');
 const { authMiddleware } = require('../middleware/auth');
 const { adminOnly } = require('../middleware/rbac');
 const { getDb } = require('../database/db');
+const { sendTelegramMessage } = require('../services/notifications');
 
 // Configure multer for category image uploads
 const uploadsDir = path.resolve(process.env.UPLOADS_PATH || './uploads');
@@ -76,7 +77,7 @@ router.get('/dashboard', (req, res) => {
   // Recent bookings
   const recent_bookings = db.prepare(`
     SELECT b.*, s.name as service_name, mp.display_name as master_name,
-      u.first_name as client_first_name, u.last_name as client_last_name, u.username as client_username
+      u.first_name as client_first_name, u.last_name as client_last_name, u.username as client_username, u.telegram_id as client_telegram_id
     FROM bookings b
     JOIN services s ON b.service_id = s.id
     JOIN masters_profiles mp ON b.master_id = mp.id
@@ -184,9 +185,9 @@ router.get('/crm', (req, res) => {
 
   if (crm_status) { query += ' AND c.crm_status = ?'; params.push(crm_status); }
   if (search) {
-    query += ' AND (u.username LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR u.phone LIKE ?)';
+    query += ' AND (u.username LIKE ? OR u.first_name LIKE ? OR u.last_name LIKE ? OR u.phone LIKE ? OR u.telegram_id LIKE ?)';
     const s = `%${search}%`;
-    params.push(s, s, s, s);
+    params.push(s, s, s, s, s);
   }
 
   query += ' ORDER BY c.total_spent DESC, c.total_visits DESC LIMIT ? OFFSET ?';
@@ -280,13 +281,126 @@ router.post('/notify', (req, res) => {
     return res.status(400).json({ error: 'user_id and message are required' });
   }
 
+  const user = db.prepare('SELECT id, telegram_id FROM users WHERE id = ?').get(user_id);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
   const result = db.prepare(`
     INSERT INTO notifications_log (user_id, type, message, status)
     VALUES (?, ?, ?, 'pending')
   `).run(user_id, type, message);
 
-  res.json({ success: true, notification_id: result.lastInsertRowid });
+  sendTelegramMessage(user.telegram_id, message)
+    .then((sent) => {
+      db.prepare(`
+        UPDATE notifications_log
+        SET status = ?, sent_at = CASE WHEN ? = 'sent' THEN CURRENT_TIMESTAMP ELSE sent_at END
+        WHERE id = ?
+      `).run(sent ? 'sent' : 'failed', sent ? 'sent' : 'failed', result.lastInsertRowid);
+    })
+    .catch((e) => {
+      console.error('Admin notify send failed:', e.message);
+      db.prepare('UPDATE notifications_log SET status = ? WHERE id = ?').run('failed', result.lastInsertRowid);
+    });
+
+  res.json({ success: true, notification_id: result.lastInsertRowid, queued: true });
 });
+
+// POST /api/admin/dialog/incoming - bot writes inbound user messages
+router.post('/dialog/incoming', (req, res) => {
+  if (!req.user?.is_bot && req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+
+  const db = getDb();
+  const { telegram_id, message, username, first_name, last_name } = req.body;
+  if (!telegram_id || !message) {
+    return res.status(400).json({ error: 'telegram_id and message are required' });
+  }
+
+  let user = db.prepare('SELECT id FROM users WHERE telegram_id = ?').get(String(telegram_id));
+  if (!user) {
+    const result = db.prepare(`
+      INSERT INTO users (telegram_id, username, first_name, last_name, role, status)
+      VALUES (?, ?, ?, ?, 'client', 'active')
+    `).run(
+      String(telegram_id),
+      username || null,
+      first_name || null,
+      last_name || null
+    );
+    db.prepare('INSERT OR IGNORE INTO clients (user_id) VALUES (?)').run(result.lastInsertRowid);
+    user = { id: result.lastInsertRowid };
+  } else {
+    db.prepare(`
+      UPDATE users SET
+        username = COALESCE(?, username),
+        first_name = COALESCE(?, first_name),
+        last_name = COALESCE(?, last_name)
+      WHERE id = ?
+    `).run(username || null, first_name || null, last_name || null, user.id);
+  }
+
+  db.prepare(`
+    INSERT INTO dialog_messages (user_id, direction, message, source)
+    VALUES (?, 'inbound', ?, 'bot')
+  `).run(user.id, String(message).trim());
+
+  res.json({ success: true });
+});
+
+// GET /api/admin/dialog/list - clients with latest message
+router.get('/dialog/list', (req, res) => {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT u.id as user_id, u.username, u.first_name, u.last_name, u.telegram_id,
+           dm.message as last_message, dm.direction as last_direction, dm.created_at as last_at
+    FROM users u
+    JOIN clients c ON c.user_id = u.id
+    LEFT JOIN dialog_messages dm ON dm.id = (
+      SELECT id FROM dialog_messages d2 WHERE d2.user_id = u.id ORDER BY d2.id DESC LIMIT 1
+    )
+    WHERE u.role = 'client'
+    ORDER BY COALESCE(dm.id, 0) DESC, u.id DESC
+  `).all();
+  res.json({ chats: rows });
+});
+
+// GET /api/admin/dialog/user/:userId - fetch recent dialog messages
+router.get('/dialog/user/:userId', (req, res) => {
+  const db = getDb();
+  const limit = Math.min(parseInt(req.query.limit || '50', 10), 200);
+  const messages = db.prepare(`
+    SELECT id, user_id, direction, message, source, created_at
+    FROM dialog_messages
+    WHERE user_id = ?
+    ORDER BY id DESC
+    LIMIT ?
+  `).all(req.params.userId, limit).reverse();
+  res.json({ messages });
+});
+
+// POST /api/admin/dialog/user/:userId - send message and store outbound
+router.post('/dialog/user/:userId', async (req, res) => {
+  const db = getDb();
+  const { message } = req.body;
+  if (!message || !String(message).trim()) {
+    return res.status(400).json({ error: 'message is required' });
+  }
+
+  const user = db.prepare('SELECT id, telegram_id FROM users WHERE id = ?').get(req.params.userId);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const text = String(message).trim();
+  const sent = await sendTelegramMessage(user.telegram_id, text);
+
+  db.prepare(`
+    INSERT INTO dialog_messages (user_id, direction, message, source)
+    VALUES (?, 'outbound', ?, 'admin')
+  `).run(user.id, text);
+
+  res.json({ success: sent, sent });
+});
+
 
 // POST /api/admin/categories/upload - upload category image
 router.post('/categories/upload', upload.single('image'), (req, res) => {

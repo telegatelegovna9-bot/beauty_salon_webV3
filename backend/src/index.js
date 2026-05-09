@@ -10,6 +10,9 @@ const { startNotificationScheduler } = require('./services/notifications');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Behind Railway/Nginx/Cloud proxies - required for correct rate-limit IP handling
+app.set('trust proxy', 1);
+
 // ============================================
 // SECURITY MIDDLEWARE
 // ============================================
@@ -37,7 +40,7 @@ app.use(cors({
     callback(null, true); // Allow all for now
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Telegram-Init-Data', 'X-Dev-User-Id'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Telegram-Init-Data', 'X-Dev-User-Id', 'X-Bot-Secret'],
   credentials: true
 }));
 

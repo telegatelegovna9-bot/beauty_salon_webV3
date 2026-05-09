@@ -54,6 +54,12 @@ function validateTelegramInitData(initData, botToken) {
  */
 async function authMiddleware(req, res, next) {
   try {
+    const botSecret = req.headers['x-bot-secret'];
+    if (botSecret && process.env.BOT_TOKEN && botSecret === process.env.BOT_TOKEN) {
+      req.user = { id: 0, role: 'admin', status: 'active', is_bot: true };
+      return next();
+    }
+
     const initData = req.headers['x-telegram-init-data'];
 
     if (!initData) {

@@ -3,6 +3,14 @@
 // ============================================
 
 const ProfilePage = {
+  formatSpentK(value) {
+    const amount = Number(value) || 0;
+    if (!amount) return '0';
+    const thousands = amount / 1000;
+    if (thousands >= 10 || Number.isInteger(thousands)) return `${Math.round(thousands)}k`;
+    return `${thousands.toFixed(1).replace(/\.0$/, '')}k`;
+  },
+
   async render(params = {}) {
     const user = Store.get('user');
     if (!user) return `<div class="page page-enter"><div class="empty-state"><div class="loading-spinner"></div></div></div>`;
@@ -34,7 +42,7 @@ const ProfilePage = {
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF69B4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                 </div>
                 <div class="profile-stat-info">
-                  <div class="profile-stat-value">${clientProfile.total_visits || 0}</div>
+                  <div class="profile-stat-value" id="profile-total-visits">${clientProfile.total_visits || 0}</div>
                   <div class="profile-stat-label">Визитов</div>
                 </div>
               </div>
@@ -43,7 +51,7 @@ const ProfilePage = {
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF69B4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
                 </div>
                 <div class="profile-stat-info">
-                  <div class="profile-stat-value">${clientProfile.total_spent ? Math.round(clientProfile.total_spent / 1000) + 'k' : '0'}</div>
+                  <div class="profile-stat-value" id="profile-total-spent">${this.formatSpentK(clientProfile.total_spent)}</div>
                   <div class="profile-stat-label">Потрачено ₽</div>
                 </div>
               </div>
@@ -145,7 +153,20 @@ const ProfilePage = {
     `;
   },
 
-  async afterRender() {},
+  async afterRender() {
+    try {
+      const { user, client_profile, master_profile } = await API.auth.me();
+      Store.set('user', user);
+      Store.set('clientProfile', client_profile || null);
+      Store.set('masterProfile', master_profile || null);
+      const visitsEl = document.getElementById('profile-total-visits');
+      const spentEl = document.getElementById('profile-total-spent');
+      if (visitsEl && client_profile) visitsEl.textContent = client_profile.total_visits || 0;
+      if (spentEl && client_profile) spentEl.textContent = this.formatSpentK(client_profile.total_spent);
+    } catch (e) {
+      // keep cached profile if refresh failed
+    }
+  },
 
   async uploadAvatar(input) {
     const file = input?.files?.[0];
@@ -186,10 +207,15 @@ const ProfilePage = {
   async saveProfile() {
     const firstName = document.getElementById('edit-first-name')?.value;
     const lastName = document.getElementById('edit-last-name')?.value;
-    const phone = document.getElementById('edit-phone')?.value;
+    const phone = document.getElementById('edit-phone')?.value?.trim() || '';
+    if (phone && (phone.length < 9 || phone.length > 13)) {
+      Toast.error('Номер телефона должен быть от 9 до 13 символов');
+      document.getElementById('edit-phone')?.focus();
+      return;
+    }
 
     try {
-      const { user } = await API.auth.updateProfile({ first_name: firstName, last_name: lastName, phone });
+      const { user } = await API.auth.updateProfile({ first_name: firstName, last_name: lastName, phone: phone || null });
       Store.set('user', user);
       Modal.close();
       Utils.haptic('success');

@@ -1,8 +1,12 @@
 require('dotenv').config({ path: require('path').join(__dirname, '../../backend/.env') });
 const TelegramBot = require('node-telegram-bot-api');
+const http = require('http');
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEBAPP_URL = process.env.WEBAPP_URL;
+const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3001}`;
+const BOT_BRIDGE_PORT = parseInt(process.env.BOT_BRIDGE_PORT || '3002', 10);
+const BOT_ENABLE_POLLING = String(process.env.BOT_ENABLE_POLLING || 'true').toLowerCase() !== 'false';
 
 if (!BOT_TOKEN) {
   console.error('❌ BOT_TOKEN is not set in .env file');
@@ -14,9 +18,10 @@ if (!WEBAPP_URL) {
   process.exit(1);
 }
 
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+const bot = new TelegramBot(BOT_TOKEN, { polling: BOT_ENABLE_POLLING });
 
 console.log('🤖 Beauty Salon Bot starting...');
+console.log(`📡 Polling: ${BOT_ENABLE_POLLING ? 'enabled' : 'disabled'}`);
 
 // ============================================
 // COMMANDS
@@ -157,11 +162,15 @@ bot.on('callback_query', async (query) => {
 
     // Notify backend
     try {
-      const axios = require('axios');
-      await axios.put(`http://localhost:${process.env.PORT || 3001}/api/bookings/${bookingId}/status`, {
+      await fetch(`${BACKEND_URL}/api/bookings/${bookingId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Bot-Secret': process.env.BOT_TOKEN
+        },
+        body: JSON.stringify({
         status: 'confirmed'
-      }, {
-        headers: { 'X-Bot-Secret': process.env.BOT_TOKEN }
+        })
       });
     } catch (e) {
       console.error('Failed to confirm booking via API:', e.message);
@@ -177,12 +186,16 @@ bot.on('callback_query', async (query) => {
     );
 
     try {
-      const axios = require('axios');
-      await axios.put(`http://localhost:${process.env.PORT || 3001}/api/bookings/${bookingId}/status`, {
+      await fetch(`${BACKEND_URL}/api/bookings/${bookingId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Bot-Secret': process.env.BOT_TOKEN
+        },
+        body: JSON.stringify({
         status: 'cancelled',
         cancel_reason: 'Отменено клиентом через уведомление'
-      }, {
-        headers: { 'X-Bot-Secret': process.env.BOT_TOKEN }
+        })
       });
     } catch (e) {
       console.error('Failed to cancel booking via API:', e.message);
@@ -221,6 +234,72 @@ bot.on('web_app_data', async (msg) => {
 });
 
 // ============================================
+// INCOMING USER MESSAGES -> BACKEND DIALOG
+// ============================================
+
+bot.on('message', async (msg) => {
+  try {
+    if (!msg.text) return;
+    if (msg.text.startsWith('/')) return; // commands handled separately
+    if (msg.web_app_data) return;
+
+    await fetch(`${BACKEND_URL}/api/admin/dialog/incoming`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Bot-Secret': process.env.BOT_TOKEN
+      },
+      body: JSON.stringify({
+      telegram_id: msg.from?.id,
+      message: msg.text,
+      username: msg.from?.username,
+      first_name: msg.from?.first_name,
+      last_name: msg.from?.last_name
+      })
+    });
+  } catch (e) {
+    console.error('Failed to persist inbound dialog message:', e.message);
+  }
+});
+
+// ============================================
+// INTERNAL BOT BRIDGE (local backend -> bot)
+// ============================================
+const bridgeServer = http.createServer(async (req, res) => {
+  if (req.method !== 'POST' || req.url !== '/internal/send') {
+    res.statusCode = 404;
+    return res.end('Not found');
+  }
+
+  if (req.headers['x-bot-secret'] !== process.env.BOT_TOKEN) {
+    res.statusCode = 401;
+    return res.end('Unauthorized');
+  }
+
+  let body = '';
+  req.on('data', chunk => { body += chunk; });
+  req.on('end', async () => {
+    try {
+      const { telegramId, message, options = {} } = JSON.parse(body || '{}');
+      if (!telegramId || !message) {
+        res.statusCode = 400;
+        return res.end('telegramId and message are required');
+      }
+      await bot.sendMessage(String(telegramId), message, { parse_mode: 'HTML', ...options });
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: true }));
+    } catch (e) {
+      res.statusCode = 500;
+      res.end(`Failed: ${e.message}`);
+    }
+  });
+});
+
+bridgeServer.listen(BOT_BRIDGE_PORT, '127.0.0.1', () => {
+  console.log(`🔌 Bot bridge listening at http://127.0.0.1:${BOT_BRIDGE_PORT}/internal/send`);
+});
+
+// ============================================
 // ERROR HANDLING
 // ============================================
 
@@ -240,3 +319,4 @@ module.exports = bot;
 
 console.log('✅ Beauty Salon Bot is running!');
 console.log(`🌐 WebApp URL: ${WEBAPP_URL}`);
+console.log(`🔗 Backend URL: ${BACKEND_URL}`);

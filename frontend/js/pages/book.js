@@ -332,7 +332,7 @@ const BookPage = {
       <!-- Phone -->
       <div class="form-group">
         <label class="form-label">Номер телефона <span style="color:var(--color-primary)">*</span></label>
-        <input class="form-input" id="booking-phone" type="tel" value="${(Store.get('user') || {}).phone || ''}" placeholder="+380 XX XXX XX XX" required>
+        <input class="form-input" id="booking-phone" type="tel" value="${(Store.get('user') || {}).phone || ''}" placeholder="Введите номер телефона" required>
       </div>
 
       <!-- Notes -->
@@ -363,6 +363,15 @@ const BookPage = {
       const phone = document.getElementById('booking-phone')?.value?.trim() || '';
       if (!phone) {
         Toast.error('Укажите номер телефона');
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = '\u2713 Подтвердить запись';
+        }
+        document.getElementById('booking-phone')?.focus();
+        return;
+      }
+      if (phone.length < 9 || phone.length > 13) {
+        Toast.error('Номер телефона должен быть от 9 до 13 символов');
         if (btn) {
           btn.disabled = false;
           btn.textContent = '\u2713 Подтвердить запись';

@@ -23,6 +23,9 @@ const AdminIcons = {
 
 const AdminPage = {
   activeTab: 'dashboard',
+  _dialogPollTimer: null,
+  _selectedChatUserId: null,
+  _chatSearchQuery: '',
 
   async render(params = {}) {
     return `
@@ -34,6 +37,7 @@ const AdminPage = {
             { key: 'bookings', label: 'Записи', icon: AdminIcons.calendar },
             { key: 'masters', label: 'Мастера', icon: AdminIcons.masters },
             { key: 'crm', label: 'CRM', icon: AdminIcons.users },
+            { key: 'chats', label: 'Чаты', icon: AdminIcons.users },
             { key: 'codes', label: 'Коды', icon: AdminIcons.key },
             { key: 'services', label: 'Услуги', icon: AdminIcons.scissors },
             { key: 'categories', label: 'Категории', icon: AdminIcons.folder }
@@ -58,7 +62,7 @@ const AdminPage = {
     this.activeTab = tab;
     document.querySelectorAll('#admin-page .master-tab').forEach(t => {
       t.classList.toggle('active', t.textContent.trim().includes(
-        { dashboard: 'Дашборд', bookings: 'Записи', masters: 'Мастера', crm: 'CRM', codes: 'Коды', services: 'Услуги', categories: 'Категории' }[tab]
+        { dashboard: 'Дашборд', bookings: 'Записи', masters: 'Мастера', crm: 'CRM', chats: 'Чаты', codes: 'Коды', services: 'Услуги', categories: 'Категории' }[tab]
       ));
     });
     this.loadTab(tab);
@@ -67,6 +71,7 @@ const AdminPage = {
   async loadTab(tab) {
     const container = document.getElementById('admin-tab-content');
     if (!container) return;
+    if (tab !== 'chats') this.stopDialogAutoRefresh();
     container.innerHTML = `<div style="padding:var(--space-md)">${Utils.skeletonCard(4)}</div>`;
 
     switch (tab) {
@@ -74,6 +79,7 @@ const AdminPage = {
       case 'bookings': await this.loadBookings(container); break;
       case 'masters': await this.loadMasters(container); break;
       case 'crm': await this.loadCRM(container); break;
+      case 'chats': await this.loadChats(container); break;
       case 'codes': await this.loadCodes(container); break;
       case 'services': await this.loadServices(container); break;
       case 'categories': await this.loadCategories(container); break;
@@ -128,7 +134,7 @@ const AdminPage = {
                     <div style="flex:1">
                       <div style="font-weight:600;font-size:var(--font-size-sm)">${b.service_name}</div>
                       <div style="font-size:var(--font-size-xs);color:var(--color-text-secondary)">
-                        ${b.client_first_name || b.client_username || 'Клиент'} → ${b.master_name}
+                        ${b.client_first_name || b.client_username || 'Клиент'}${b.client_username ? ` · @${b.client_username}` : ''}${b.client_telegram_id ? ` · ID:${b.client_telegram_id}` : ''} → ${b.master_name}
                       </div>
                       <div style="font-size:var(--font-size-xs);color:var(--color-text-tertiary)">${Utils.formatDate(b.booking_date, 'short')} ${Utils.formatTime(b.start_time)}</div>
                     </div>
@@ -185,7 +191,7 @@ const AdminPage = {
                 <div class="booking-card-body">
                   <div style="font-weight:600">${b.service_name}</div>
                   <div style="font-size:var(--font-size-sm);color:var(--color-text-secondary)">
-                    ${b.client_first_name || b.client_username || 'Клиент'} → ${b.master_name}
+                    ${b.client_first_name || b.client_username || 'Клиент'}${b.client_username ? ` · @${b.client_username}` : ''}${b.client_telegram_id ? ` · ID:${b.client_telegram_id}` : ''} → ${b.master_name}
                   </div>
                 </div>
               </div>
@@ -240,6 +246,98 @@ const AdminPage = {
   // CRM
   // ============================================
 
+  async loadChats(container) {
+    try {
+      const { chats } = await API.admin.dialogList();
+      const allChats = chats || [];
+      const q = (this._chatSearchQuery || '').trim().toLowerCase();
+      const filteredChats = !q ? allChats : allChats.filter(c => {
+        const name = Utils.getUserName(c).toLowerCase();
+        const username = String(c.username || '').toLowerCase();
+        const tgId = String(c.telegram_id || '');
+        return name.includes(q) || username.includes(q) || tgId.includes(q);
+      });
+
+      if (!this._selectedChatUserId && filteredChats.length) this._selectedChatUserId = filteredChats[0].user_id;
+      if (this._selectedChatUserId && filteredChats.length && !filteredChats.find(c => c.user_id === this._selectedChatUserId)) {
+        this._selectedChatUserId = filteredChats[0].user_id;
+      }
+      container.innerHTML = `
+        <div style="padding:var(--space-md);display:flex;flex-direction:column;gap:var(--space-md);height:calc(100vh - 170px)">
+          <div class="form-group" style="margin:0">
+            <input class="form-input" placeholder="Поиск: имя, @username, Telegram ID" value="${this._chatSearchQuery || ''}" oninput="AdminPage.setChatSearch(this.value)">
+          </div>
+          <div style="background:var(--color-surface);border:1px solid var(--color-border-light);border-radius:14px;padding:10px;display:flex;gap:8px;overflow:auto;white-space:nowrap">
+            ${filteredChats.length === 0
+              ? '<span style="color:var(--color-text-tertiary)">Ничего не найдено</span>'
+              : filteredChats.map(c => `
+                <button class="btn ${this._selectedChatUserId === c.user_id ? 'btn-primary' : 'btn-ghost'} btn-sm" onclick="AdminPage.selectChat(${c.user_id})" style="display:inline-flex;align-items:center;gap:6px">
+                  <span>${Utils.getUserName(c)}</span>
+                  <span style="font-size:11px;opacity:.75">${c.username ? '@' + c.username : 'ID:' + c.telegram_id}</span>
+                </button>
+              `).join('')}
+          </div>
+          <div style="background:var(--color-surface);border:1px solid var(--color-border-light);border-radius:14px;display:flex;flex-direction:column;min-height:0;flex:1">
+            <div id="chat-thread" style="flex:1;overflow:auto;padding:var(--space-md)">Выберите чат</div>
+            <div style="padding:var(--space-md);border-top:1px solid var(--color-border-light);display:flex;gap:8px">
+              <input id="chat-compose-input" class="form-input" placeholder="Сообщение клиенту..." style="flex:1"/>
+              <button class="btn btn-primary" onclick="AdminPage.sendChatMessage()">Отправить</button>
+            </div>
+          </div>
+        </div>
+      `;
+      this._chats = allChats;
+      if (this._selectedChatUserId) await this.loadSelectedChat();
+      this.startDialogAutoRefresh(this._selectedChatUserId);
+    } catch (e) {
+      container.innerHTML = EmptyState.render(AdminIcons.warning, 'Ошибка', e.message);
+    }
+  },
+
+  async selectChat(userId) {
+    this._selectedChatUserId = userId;
+    await this.loadTab('chats');
+  },
+
+  async setChatSearch(value) {
+    this._chatSearchQuery = value || '';
+    await this.loadTab('chats');
+  },
+
+  async loadSelectedChat() {
+    const thread = document.getElementById('chat-thread');
+    if (!thread || !this._selectedChatUserId) return;
+    const { messages } = await API.admin.dialog(this._selectedChatUserId, { limit: 100 });
+    if (!messages?.length) {
+      thread.innerHTML = '<div style="color:var(--color-text-tertiary)">Нет сообщений</div>';
+      return;
+    }
+    thread.innerHTML = messages.map(m => `
+      <div style="display:flex;justify-content:${m.direction === 'outbound' ? 'flex-end' : 'flex-start'};margin-bottom:8px">
+        <div style="max-width:75%;padding:8px 10px;border-radius:10px;background:${m.direction === 'outbound' ? 'var(--color-primary-light)' : 'var(--color-bg-secondary)'}">
+          <div style="font-size:13px">${m.message}</div>
+          <div style="font-size:10px;color:var(--color-text-tertiary);margin-top:4px">${new Date(m.created_at).toLocaleString('ru-RU')}</div>
+        </div>
+      </div>
+    `).join('');
+    thread.scrollTop = thread.scrollHeight;
+  },
+
+  async sendChatMessage() {
+    if (!this._selectedChatUserId) return Toast.error('Выберите чат');
+    const input = document.getElementById('chat-compose-input');
+    const message = input?.value?.trim();
+    if (!message) return;
+    try {
+      await API.admin.sendDialog(this._selectedChatUserId, { message });
+      input.value = '';
+      await this.loadSelectedChat();
+      await this.loadTab('chats');
+    } catch (e) {
+      Toast.error(e.message || 'Ошибка отправки');
+    }
+  },
+
   async loadCRM(container) {
     try {
       const { clients } = await API.admin.crm({ limit: 50 });
@@ -259,6 +357,12 @@ const AdminPage = {
                       <div style="font-size:var(--font-size-sm);color:var(--color-text-secondary)">
                         ${c.total_visits} визитов · ${Math.round(c.total_spent || 0).toLocaleString('ru-RU')} ₽
                       </div>
+                      <div style="font-size:var(--font-size-xs);color:var(--color-text-tertiary)">
+                        ${c.username ? `@${c.username}` : 'username: —'} · ID: ${c.telegram_id || '—'}
+                      </div>
+                      <div style="font-size:var(--font-size-xs);color:var(--color-text-tertiary)">
+                        📞 ${c.phone || '—'}
+                      </div>
                       ${c.last_visit_date ? `<div style="font-size:var(--font-size-xs);color:var(--color-text-tertiary)">Последний визит: ${Utils.formatDate(c.last_visit_date, 'short')}</div>` : ''}
                     </div>
                     <span class="badge badge-${c.crm_status}">${Config.CRM_STATUS[c.crm_status]?.label || c.crm_status}</span>
@@ -274,9 +378,17 @@ const AdminPage = {
     }
   },
 
-  openClientModal(userId) {
-    const client = this._clients?.find(c => c.id === userId);
+  async openClientModal(userId) {
+    let client = this._clients?.find(c => c.id === userId);
+    if (client && !client.crm_status) {
+      try {
+        const { clients } = await API.admin.crm({ limit: 200 });
+        const fullClient = clients.find(c => c.id === userId);
+        if (fullClient) client = fullClient;
+      } catch (_) {}
+    }
     if (!client) return;
+    const isBlocked = client.status === 'blocked';
 
     Modal.open(`
       <div style="display:flex;flex-direction:column;gap:var(--space-md)">
@@ -284,6 +396,17 @@ const AdminPage = {
           <div style="font-size:32px;font-weight:700;color:var(--color-primary);margin-bottom:4px">${Utils.getInitials(Utils.getUserName(client))}</div>
           <div style="font-weight:700;font-size:var(--font-size-lg)">${Utils.getUserName(client)}</div>
           ${client.username ? `<div style="color:var(--color-text-secondary)">@${client.username}</div>` : ''}
+          <div style="font-size:var(--font-size-xs);color:var(--color-text-tertiary);margin-top:4px">Telegram ID: ${client.telegram_id || '—'}</div>
+          <div style="font-size:var(--font-size-xs);color:var(--color-text-tertiary)">Телефон: ${client.phone || '—'}</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Доступ в приложение</label>
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:var(--space-sm)">
+            <span class="badge ${isBlocked ? 'badge-cancelled' : 'badge-active'}">${isBlocked ? 'Заблокирован' : 'Активен'}</span>
+            <button class="btn btn-ghost btn-sm" onclick="AdminPage.toggleClientAccess(${userId}, '${client.status}')">
+              ${isBlocked ? 'Разблокировать' : 'Заблокировать'}
+            </button>
+          </div>
         </div>
         <div class="form-group">
           <label class="form-label">CRM Статус</label>
@@ -312,6 +435,74 @@ const AdminPage = {
       await this.loadCRM(document.getElementById('admin-tab-content'));
     } catch (e) {
       Toast.error(e.message || 'Ошибка');
+    }
+  },
+
+  async toggleClientAccess(userId, currentStatus) {
+    const newStatus = currentStatus === 'active' ? 'blocked' : 'active';
+    try {
+      await API.admin.updateUser(userId, { status: newStatus });
+      Modal.close();
+      Toast.success(`Клиент ${newStatus === 'active' ? 'разблокирован' : 'заблокирован'}`);
+      await this.loadCRM(document.getElementById('admin-tab-content'));
+    } catch (e) {
+      Toast.error(e.message || 'Ошибка');
+    }
+  },
+
+  async sendDirectMessage(userId) {
+    const message = document.getElementById('bot-direct-message')?.value?.trim();
+    if (!message) {
+      Toast.error('Введите сообщение');
+      return;
+    }
+    try {
+      await API.admin.sendDialog(userId, { message });
+      Toast.success('Сообщение отправлено');
+      const input = document.getElementById('bot-direct-message');
+      if (input) input.value = '';
+      await this.loadDialog(userId);
+    } catch (e) {
+      Toast.error(e.message || 'Ошибка отправки');
+    }
+  },
+
+  async loadDialog(userId) {
+    const box = document.getElementById('dialog-history');
+    if (!box) return;
+    try {
+      const { messages } = await API.admin.dialog(userId, { limit: 30 });
+      if (!messages || messages.length === 0) {
+        box.innerHTML = '<div style="color:var(--color-text-tertiary)">Пока нет сообщений</div>';
+        return;
+      }
+      box.innerHTML = messages.map(m => `
+        <div style="margin-bottom:6px;padding:6px 8px;border-radius:8px;background:${m.direction === 'outbound' ? 'var(--color-bg-secondary)' : 'rgba(255,0,128,0.06)'}">
+          <div style="font-size:11px;color:var(--color-text-tertiary);margin-bottom:2px">${m.direction === 'outbound' ? 'Вы → Клиент' : 'Клиент → Бот'} · ${new Date(m.created_at).toLocaleString('ru-RU')}</div>
+          <div style="color:var(--color-text-primary)">${m.message}</div>
+        </div>
+      `).join('');
+      box.scrollTop = box.scrollHeight;
+    } catch (e) {
+      box.innerHTML = `<div style="color:var(--color-danger)">Ошибка загрузки диалога</div>`;
+    }
+  },
+
+  startDialogAutoRefresh(userId) {
+    this.stopDialogAutoRefresh();
+    this._dialogPollTimer = setInterval(async () => {
+      const dialogBox = document.getElementById('dialog-history');
+      const chatThread = document.getElementById('chat-thread');
+      if (!dialogBox && !chatThread) return this.stopDialogAutoRefresh();
+      if (dialogBox && userId) await this.loadDialog(userId);
+      if (chatThread && this._selectedChatUserId) await this.loadSelectedChat();
+    }, 5000);
+  },
+
+  stopDialogAutoRefresh() {
+    if (this._dialogPollTimer) {
+      clearInterval(this._dialogPollTimer);
+      this._dialogPollTimer = null;
     }
   },
 
