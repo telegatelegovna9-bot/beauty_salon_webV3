@@ -96,12 +96,14 @@ router.get('/:id', authMiddleware, (req, res) => {
       mp.display_name as master_name, mp.avatar_url as master_avatar,
       u_master.first_name as master_first_name, u_master.last_name as master_last_name,
       u_client.first_name as client_first_name, u_client.last_name as client_last_name,
-      u_client.username as client_username, COALESCE(b.client_phone, u_client.phone) as client_phone, u_client.telegram_id as client_telegram_id
+      u_client.username as client_username, COALESCE(b.client_phone, u_client.phone) as client_phone, u_client.telegram_id as client_telegram_id,
+      r.id as review_id, r.rating as review_rating, r.comment as review_comment, r.created_at as review_created_at
     FROM bookings b
     JOIN services s ON b.service_id = s.id
     JOIN masters_profiles mp ON b.master_id = mp.id
     JOIN users u_master ON mp.user_id = u_master.id
     JOIN users u_client ON b.client_id = u_client.id
+    LEFT JOIN reviews r ON r.booking_id = b.id
     WHERE b.id = ?
   `).get(req.params.id);
 

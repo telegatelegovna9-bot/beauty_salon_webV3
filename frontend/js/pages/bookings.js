@@ -168,12 +168,19 @@ const BookingDetailPage = {
       }
 
       if (booking.status === 'completed' && !isMaster) {
-        // Check if review exists
-        actionButtons += `
-          <button class="btn btn-outline btn-full" onclick="BookingDetailPage.showReviewModal()">
-            ★ Оставить отзыв
-          </button>
-        `;
+        if (booking.review_id) {
+          actionButtons += `
+            <button class="btn btn-ghost btn-full" onclick="BookingDetailPage.showReviewDetails()">
+              ★ Мой отзыв
+            </button>
+          `;
+        } else {
+          actionButtons += `
+            <button class="btn btn-outline btn-full" onclick="BookingDetailPage.showReviewModal()">
+              ★ Оставить отзыв
+            </button>
+          `;
+        }
       }
 
       container.innerHTML = `
@@ -306,6 +313,28 @@ const BookingDetailPage = {
     await this.updateStatus('cancelled');
   },
 
+  showReviewDetails() {
+    const rating = Number(this.booking.review_rating) || 0;
+    const reviewDate = this.booking.review_created_at
+      ? Utils.formatDate(this.booking.review_created_at, 'full')
+      : '';
+
+    Modal.open(`
+      <div style="display:flex;flex-direction:column;gap:var(--space-md)">
+        <div style="font-size:28px;text-align:center;color:var(--color-primary)">
+          ${'★'.repeat(rating)}
+        </div>
+        ${this.booking.review_comment
+          ? `<div class="card"><div class="card-body" style="white-space:pre-wrap">${this.booking.review_comment}</div></div>`
+          : '<div style="text-align:center;color:var(--color-text-secondary)">Без комментария</div>'}
+        ${reviewDate
+          ? `<div style="text-align:center;color:var(--color-text-secondary);font-size:var(--font-size-sm)">Оставлен: ${reviewDate}</div>`
+          : ''}
+        <button class="btn btn-primary btn-full" onclick="Modal.close()">Закрыть</button>
+      </div>
+    `, 'Ваш отзыв');
+  },
+
   showReviewModal() {
     let selectedRating = 5;
     Modal.open(`
@@ -343,6 +372,7 @@ const BookingDetailPage = {
       Modal.close();
       Utils.haptic('success');
       Toast.success('Отзыв отправлен! Спасибо 🌸');
+      await this.loadBooking(this.booking.id);
     } catch (e) {
       Toast.error(e.message || 'Ошибка отправки отзыва');
     }
