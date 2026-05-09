@@ -2,30 +2,30 @@ const cron = require('node-cron');
 const { getDb } = require('../database/db');
 
 async function sendTelegramMessage(telegramId, message, options = {}) {
-  const botToken = process.env.BOT_TOKEN;
-  if (!botToken) {
-    console.warn('BOT_TOKEN not set, cannot send notification');
+  const botBridgeUrl = process.env.BOT_BRIDGE_URL || 'http://127.0.0.1:3002';
+  const botSecret = process.env.BOT_TOKEN;
+  if (!botSecret) {
+    console.warn('BOT_TOKEN not set, cannot call bot bridge');
     return false;
   }
 
   try {
-    const payload = {
-      chat_id: String(telegramId),
-      text: message,
-      parse_mode: 'HTML'
-    };
-
-    if (options.reply_markup) payload.reply_markup = options.reply_markup;
-
-    const resp = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+    const resp = await fetch(`${botBridgeUrl}/internal/send`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Bot-Secret': botSecret
+      },
+      body: JSON.stringify({
+        telegramId: String(telegramId),
+        message,
+        options
+      })
     });
 
     if (!resp.ok) {
       const body = await resp.text();
-      console.error(`Failed to send message to ${telegramId}: HTTP ${resp.status} ${body}`);
+      console.error(`Bot bridge failed for ${telegramId}: HTTP ${resp.status} ${body}`);
       return false;
     }
 

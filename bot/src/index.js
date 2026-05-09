@@ -1,9 +1,11 @@
 require('dotenv').config({ path: require('path').join(__dirname, '../../backend/.env') });
 const TelegramBot = require('node-telegram-bot-api');
+const http = require('http');
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEBAPP_URL = process.env.WEBAPP_URL;
 const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3001}`;
+const BOT_BRIDGE_PORT = parseInt(process.env.BOT_BRIDGE_PORT || '3002', 10);
 
 if (!BOT_TOKEN) {
   console.error('❌ BOT_TOKEN is not set in .env file');
@@ -256,6 +258,43 @@ bot.on('message', async (msg) => {
   } catch (e) {
     console.error('Failed to persist inbound dialog message:', e.message);
   }
+});
+
+// ============================================
+// INTERNAL BOT BRIDGE (local backend -> bot)
+// ============================================
+const bridgeServer = http.createServer(async (req, res) => {
+  if (req.method !== 'POST' || req.url !== '/internal/send') {
+    res.statusCode = 404;
+    return res.end('Not found');
+  }
+
+  if (req.headers['x-bot-secret'] !== process.env.BOT_TOKEN) {
+    res.statusCode = 401;
+    return res.end('Unauthorized');
+  }
+
+  let body = '';
+  req.on('data', chunk => { body += chunk; });
+  req.on('end', async () => {
+    try {
+      const { telegramId, message, options = {} } = JSON.parse(body || '{}');
+      if (!telegramId || !message) {
+        res.statusCode = 400;
+        return res.end('telegramId and message are required');
+      }
+      await bot.sendMessage(String(telegramId), message, { parse_mode: 'HTML', ...options });
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ success: true }));
+    } catch (e) {
+      res.statusCode = 500;
+      res.end(`Failed: ${e.message}`);
+    }
+  });
+});
+
+bridgeServer.listen(BOT_BRIDGE_PORT, '127.0.0.1', () => {
+  console.log(`🔌 Bot bridge listening at http://127.0.0.1:${BOT_BRIDGE_PORT}/internal/send`);
 });
 
 // ============================================
