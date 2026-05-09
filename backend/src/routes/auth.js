@@ -68,6 +68,7 @@ router.post('/', authMiddleware, (req, res) => {
 router.get('/me', authMiddleware, (req, res) => {
   const db = getDb();
   const user = req.user;
+  const clientProfile = db.prepare('SELECT * FROM clients WHERE user_id = ?').get(user.id);
 
   let masterProfile = null;
   if (user.role === 'master' || user.role === 'admin') {
@@ -89,7 +90,8 @@ router.get('/me', authMiddleware, (req, res) => {
       role: user.role,
       status: user.status
     },
-    master_profile: masterProfile
+    master_profile: masterProfile,
+    client_profile: clientProfile
   });
 });
 
