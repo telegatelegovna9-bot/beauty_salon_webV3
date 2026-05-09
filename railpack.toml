@@ -1,5 +1,0 @@
-[build]
-start_command = "node backend/src/index.js & node bot/src/index.js"
-
-[environment]
-NODE_VERSION = "18"
