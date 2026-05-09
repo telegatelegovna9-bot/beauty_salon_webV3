@@ -6,6 +6,7 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEBAPP_URL = process.env.WEBAPP_URL;
 const BACKEND_URL = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 3001}`;
 const BOT_BRIDGE_PORT = parseInt(process.env.BOT_BRIDGE_PORT || '3002', 10);
+const BOT_ENABLE_POLLING = String(process.env.BOT_ENABLE_POLLING || 'true').toLowerCase() !== 'false';
 
 if (!BOT_TOKEN) {
   console.error('❌ BOT_TOKEN is not set in .env file');
@@ -17,9 +18,10 @@ if (!WEBAPP_URL) {
   process.exit(1);
 }
 
-const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+const bot = new TelegramBot(BOT_TOKEN, { polling: BOT_ENABLE_POLLING });
 
 console.log('🤖 Beauty Salon Bot starting...');
+console.log(`📡 Polling: ${BOT_ENABLE_POLLING ? 'enabled' : 'disabled'}`);
 
 // ============================================
 // COMMANDS

@@ -10,6 +10,9 @@ const { startNotificationScheduler } = require('./services/notifications');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Behind Railway/Nginx/Cloud proxies - required for correct rate-limit IP handling
+app.set('trust proxy', 1);
+
 // ============================================
 // SECURITY MIDDLEWARE
 // ============================================
