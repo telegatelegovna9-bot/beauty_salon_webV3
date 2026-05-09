@@ -3,6 +3,14 @@
 // ============================================
 
 const ProfilePage = {
+  formatSpentK(value) {
+    const amount = Number(value) || 0;
+    if (!amount) return '0';
+    const thousands = amount / 1000;
+    if (thousands >= 10 || Number.isInteger(thousands)) return `${Math.round(thousands)}k`;
+    return `${thousands.toFixed(1).replace(/\.0$/, '')}k`;
+  },
+
   async render(params = {}) {
     const user = Store.get('user');
     if (!user) return `<div class="page page-enter"><div class="empty-state"><div class="loading-spinner"></div></div></div>`;
@@ -43,7 +51,7 @@ const ProfilePage = {
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF69B4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
                 </div>
                 <div class="profile-stat-info">
-                  <div class="profile-stat-value" id="profile-total-spent">${clientProfile.total_spent ? Math.round(clientProfile.total_spent / 1000) + 'k' : '0'}</div>
+                  <div class="profile-stat-value" id="profile-total-spent">${this.formatSpentK(clientProfile.total_spent)}</div>
                   <div class="profile-stat-label">Потрачено ₽</div>
                 </div>
               </div>
@@ -154,7 +162,7 @@ const ProfilePage = {
       const visitsEl = document.getElementById('profile-total-visits');
       const spentEl = document.getElementById('profile-total-spent');
       if (visitsEl && client_profile) visitsEl.textContent = client_profile.total_visits || 0;
-      if (spentEl && client_profile) spentEl.textContent = client_profile.total_spent ? Math.round(client_profile.total_spent / 1000) + 'k' : '0';
+      if (spentEl && client_profile) spentEl.textContent = this.formatSpentK(client_profile.total_spent);
     } catch (e) {
       // keep cached profile if refresh failed
     }
