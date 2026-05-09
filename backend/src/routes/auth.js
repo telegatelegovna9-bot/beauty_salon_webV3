@@ -6,6 +6,33 @@ const fs = require('fs');
 const { authMiddleware } = require('../middleware/auth');
 const { adminOnly } = require('../middleware/rbac');
 const { getDb } = require('../database/db');
+function getClientProfile(db, userId) {
+  db.prepare('INSERT OR IGNORE INTO clients (user_id) VALUES (?)').run(userId);
+
+  const stats = db.prepare(`
+    SELECT
+      COUNT(*) as total_visits,
+      COALESCE(SUM(price), 0) as total_spent,
+      MAX(booking_date) as last_visit_date
+    FROM bookings
+    WHERE client_id = ? AND status = 'completed'
+  `).get(userId);
+
+  const totalVisits = Number(stats?.total_visits) || 0;
+  const crmStatus = totalVisits >= 10 ? 'vip' : (totalVisits >= 1 ? 'active' : 'new');
+
+  db.prepare(`
+    UPDATE clients SET
+      total_visits = ?,
+      total_spent = ?,
+      last_visit_date = ?,
+      crm_status = ?,
+      updated_at = CURRENT_TIMESTAMP
+    WHERE user_id = ?
+  `).run(totalVisits, Number(stats?.total_spent) || 0, stats?.last_visit_date || null, crmStatus, userId);
+
+  return db.prepare('SELECT * FROM clients WHERE user_id = ?').get(userId);
+}
 
 const uploadsDir = path.resolve(process.env.UPLOADS_PATH || './uploads');
 const userAvatarsDir = path.join(uploadsDir, 'users');
@@ -44,7 +71,7 @@ router.post('/', authMiddleware, (req, res) => {
     }
   }
 
-  const clientProfile = db.prepare('SELECT * FROM clients WHERE user_id = ?').get(user.id);
+  const clientProfile = getClientProfile(db, user.id);
 
   res.json({
     user: {
@@ -68,7 +95,7 @@ router.post('/', authMiddleware, (req, res) => {
 router.get('/me', authMiddleware, (req, res) => {
   const db = getDb();
   const user = req.user;
-  const clientProfile = db.prepare('SELECT * FROM clients WHERE user_id = ?').get(user.id);
+  const clientProfile = getClientProfile(db, user.id);
 
   let masterProfile = null;
   if (user.role === 'master' || user.role === 'admin') {
